@@ -160,10 +160,19 @@ export async function extractFrames(
       throw new Error("この動画は映像サイズを取得できませんでした");
     }
 
-    // コマ数を動画の長さに応じて決める（約2秒に1枚、6〜12枚の範囲）。
-    // 多すぎると処理が重く・後でClaudeに送る量も増えるため上限を設ける。
-    const count = Math.min(12, Math.max(6, Math.round(duration / 2)));
-    onProgress?.(`コマ数を${count}枚に設定（長さに合わせて自動調整）`);
+    // 落ちる瞬間（核心）を重視：末尾の約8秒を0.5秒ごとに、最大16枚。
+    // 動きの全体理解は Gemini が動画丸ごとで担うので、静止画は終盤に集中させる。
+    const INTERVAL = 0.5;
+    const MAX_FRAMES = 16; // 16 × 0.5秒 = 約8秒ぶん
+    const lastT = Math.max(0, duration - 0.1); // 末尾直前（末端は取得が不安定なため）
+    const times: number[] = [];
+    for (let k = 0; k < MAX_FRAMES; k++) {
+      const t = lastT - k * INTERVAL;
+      if (t < 0) break;
+      times.push(t);
+    }
+    times.reverse(); // 古い→新しい（末尾）順に並べ替え
+    onProgress?.(`末尾を${times.length}枚（0.5秒ごと）に切り出します`);
 
     onProgress?.("映像デコードを準備中…");
     await primeDecoding(video);
@@ -176,11 +185,10 @@ export async function extractFrames(
     if (!ctx) throw new Error("画像の描画に失敗しました");
 
     const frames: Frame[] = [];
-    for (let i = 0; i < count; i++) {
-      onProgress?.(`コマ ${i + 1}/${count} を取得中…`);
-      const t = duration * ((i + 0.5) / count);
+    for (let i = 0; i < times.length; i++) {
+      onProgress?.(`コマ ${i + 1}/${times.length} を取得中…`);
       // 画像と正確な秒を同じ瞬間に取得（両者のズレを防ぐ）
-      const frame = await seekAndCapture(video, ctx, canvas, t);
+      const frame = await seekAndCapture(video, ctx, canvas, times[i]);
       frames.push(frame);
     }
 
