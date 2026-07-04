@@ -191,23 +191,26 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
           </select>
         </label>
       </div>
-      <Link
-        href="/settings"
-        className="mb-4 inline-block text-xs text-zinc-500 underline dark:text-zinc-400"
-      >
-        ジム・グレードを登録/編集
-      </Link>
-
       {/* 動画を選ぶボタン */}
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90">
-        動画を選ぶ
-        <input
-          type="file"
-          accept="video/*"
-          className="hidden"
-          onChange={onSelect}
-        />
-      </label>
+      <div>
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90">
+          動画を選ぶ
+          <input
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={onSelect}
+          />
+        </label>
+      </div>
+      <div className="mt-3">
+        <Link
+          href="/settings"
+          className="text-xs text-zinc-500 underline dark:text-zinc-400"
+        >
+          ジム・グレードを登録/編集
+        </Link>
+      </div>
 
       {/* コマ抽出のエラー */}
       {extractStatus === "error" && extractError && (
