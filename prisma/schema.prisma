@@ -1,0 +1,22 @@
+// Prisma スキーマ（データベースの設計図）
+// 詳しい仕様は SPEC.md 参照。Phase 0 では解析1件を表す Analysis のみを扱う。
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 解析1件（1動画1件）
+model Analysis {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  gym          String? // ジム名（任意）
+  grade        String? // グレード（任意）
+  summary      String // 敗因
+  prescription String // 処方
+  thumbnail    String? // 先頭コマのサムネ（data URL）
+}

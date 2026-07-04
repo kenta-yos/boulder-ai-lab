@@ -2,6 +2,7 @@
 // ブラウザから「コマ画像＋文脈」を受け取り、Claudeで解析して結果を返す。
 import { NextResponse } from "next/server";
 import { analyzeWithClaude } from "@/app/_lib/analyzeWithClaude";
+import { prisma } from "@/app/_lib/db";
 
 // Node.jsランタイムで動かす（SDKに必要）。最大60秒まで許可。
 export const runtime = "nodejs";
@@ -24,6 +25,17 @@ export async function POST(request: Request) {
       grade: body?.grade,
       gym: body?.gym,
       note: body?.note,
+    });
+
+    // 解析結果を記録に保存（サムネは先頭コマ）
+    await prisma.analysis.create({
+      data: {
+        gym: body?.gym ?? null,
+        grade: body?.grade ?? null,
+        summary: feedback.summary,
+        prescription: feedback.prescription,
+        thumbnail: frames[0] ?? null,
+      },
     });
 
     return NextResponse.json(feedback);

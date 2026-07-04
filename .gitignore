@@ -46,3 +46,5 @@ next-env.d.ts
 # テスト用の動画（容量大・人が映るのでGitHubに上げない）
 /test-assets
 
+
+/src/generated/prisma
