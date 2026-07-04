@@ -52,12 +52,14 @@ export function Uploader() {
     if (videoRef.current) videoRef.current.muted = true;
   }, [videoUrl]);
 
-  // コマをタップ → 動画をその秒へ移動して再生
+  // コマをタップ → 動画をその秒へ移動して「一時停止」で止める。
+  // 勝手に再生すると位置が前へ進んでズレて見えるため、あえて止める。
+  // 続きを見たいときは再生ボタンでそこから再生できる。
   function seekTo(tSec: number) {
     const v = videoRef.current;
     if (!v) return;
+    v.pause();
     v.currentTime = tSec;
-    v.play().catch(() => {});
     v.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
