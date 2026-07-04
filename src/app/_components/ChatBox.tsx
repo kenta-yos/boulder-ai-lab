@@ -82,23 +82,31 @@ export function ChatBox({ frames, feedback, grade }: Props) {
       )}
 
       {/* 入力 */}
-      <div className="flex gap-2">
-        <input
-          type="text"
+      <div className="flex items-end gap-2">
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") send();
+            // かな漢字変換の確定(Enter)では送信しない。Shift+Enterは改行。
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
+              e.preventDefault();
+              send();
+            }
           }}
+          rows={1}
           placeholder="質問を入力…"
           disabled={sending}
-          className="flex-1 rounded-full border border-black/15 bg-transparent px-4 py-2 text-sm dark:border-white/20"
+          className="min-w-0 flex-1 resize-none rounded-2xl border border-black/15 bg-transparent px-4 py-2 text-sm leading-6 dark:border-white/20"
         />
         <button
           type="button"
           onClick={send}
           disabled={sending || !input.trim()}
-          className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="shrink-0 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           送信
         </button>
