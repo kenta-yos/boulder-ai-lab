@@ -29,11 +29,19 @@ export type SkillScore = {
   evidence: string; // 一言の根拠
 };
 
+// 秒数つきの指摘（タップで動画のその瞬間へジャンプする）
+export type Finding = {
+  tSec: number; // 動画内の秒数
+  comment: string; // その瞬間の指摘
+  skill?: string; // 関連する技術軸（任意）
+};
+
 // 解析の出力（アプリの顔＝②画面に出す）
 export type Feedback = {
   summary: string; // 敗因：なぜ落ちたか
   prescription: string; // 処方：どうすれば成功するか
   scores?: SkillScore[]; // 技術8軸のスコア
+  findings?: Finding[]; // 秒数つきの指摘
 };
 
 // 差し替え可能な解析関数の型

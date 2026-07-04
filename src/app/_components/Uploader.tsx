@@ -9,6 +9,14 @@ import { ScoreBars } from "./ScoreBars";
 
 type Status = "idle" | "working" | "done" | "error";
 
+// 秒 → m:ss 表記
+function formatTime(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
 export function Uploader() {
   // コマ抽出まわり
   const [extractStatus, setExtractStatus] = useState<Status>("idle");
@@ -24,8 +32,6 @@ export function Uploader() {
   const [analyzeStatus, setAnalyzeStatus] = useState<Status>("idle");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [analyzeError, setAnalyzeError] = useState("");
-  // どちらの解析か（静止画=Claude / 動画=Gemini）で覆いの文言を変える
-  const [analyzeKind, setAnalyzeKind] = useState<"frames" | "video">("frames");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoUrlRef = useRef<string>("");
@@ -100,48 +106,33 @@ export function Uploader() {
     }
   }
 
+  // 統合解析：動画(Gemini)＋静止画＋知識ベース(Claude) を1回で。
   async function onAnalyze() {
-    setAnalyzeError("");
-    setFeedback(null);
-    setAnalyzeKind("frames");
-    setAnalyzeStatus("working");
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frames, grade: grade || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "解析に失敗しました");
-      setFeedback({ summary: data.summary, prescription: data.prescription });
-      setAnalyzeStatus("done");
-    } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : "解析に失敗しました");
-      setAnalyzeStatus("error");
-    }
-  }
-
-  async function onAnalyzeVideo() {
     if (!videoFile) return;
     setAnalyzeError("");
     setFeedback(null);
-    setAnalyzeKind("video");
     setAnalyzeStatus("working");
     try {
       const form = new FormData();
       form.append("video", videoFile);
+      form.append("frames", JSON.stringify(frames));
       if (grade) form.append("grade", grade);
       if (frames[0]) form.append("thumbnail", frames[0]);
-      const res = await fetch("/api/analyze-video", {
+      const res = await fetch("/api/analyze-integrated", {
         method: "POST",
         body: form,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "動画解析に失敗しました");
-      setFeedback({ summary: data.summary, prescription: data.prescription });
+      if (!res.ok) throw new Error(data?.error || "解析に失敗しました");
+      setFeedback({
+        summary: data.summary,
+        prescription: data.prescription,
+        scores: data.scores,
+        findings: data.findings,
+      });
       setAnalyzeStatus("done");
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : "動画解析に失敗しました");
+      setAnalyzeError(err instanceof Error ? err.message : "解析に失敗しました");
       setAnalyzeStatus("error");
     }
   }
@@ -216,23 +207,14 @@ export function Uploader() {
             ))}
           </div>
 
-          {/* 解析ボタン（静止画Claude / 動画Gemini） */}
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={onAnalyze}
-              className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
-            >
-              静止画で解析（Claude）
-            </button>
-            <button
-              type="button"
-              onClick={onAnalyzeVideo}
-              className="inline-flex items-center gap-2 rounded-full border border-black/20 px-6 py-3 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/25 dark:hover:bg-white/10"
-            >
-              動画で解析（Gemini）
-            </button>
-          </div>
+          {/* 解析ボタン（統合：Gemini動画読み＋Claude知識ベース） */}
+          <button
+            type="button"
+            onClick={onAnalyze}
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+          >
+            AIコーチに解析してもらう
+          </button>
         </div>
       )}
 
@@ -261,6 +243,33 @@ export function Uploader() {
             </p>
           </div>
 
+          {feedback.findings && feedback.findings.length > 0 && (
+            <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+              <p className="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                指摘（タップで動画のその瞬間へ）
+              </p>
+              <ul className="space-y-2">
+                {feedback.findings.map((f, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => seekTo(f.tSec)}
+                      className="w-full rounded-lg border border-black/10 p-2 text-left text-sm transition-colors hover:bg-black/[.03] dark:border-white/15 dark:hover:bg-white/[.06]"
+                    >
+                      <span className="font-medium text-blue-600 dark:text-blue-400">
+                        {formatTime(f.tSec)}
+                      </span>
+                      {f.skill ? (
+                        <span className="text-zinc-500"> ・{f.skill}</span>
+                      ) : null}
+                      <span className="block leading-6">{f.comment}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {feedback.scores && feedback.scores.length > 0 && (
             <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
               <p className="mb-3 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
@@ -286,20 +295,11 @@ export function Uploader() {
               <p className="text-base font-medium">コマを切り出しています…</p>
               <p className="text-sm text-white/80">{progress}</p>
             </>
-          ) : analyzeKind === "video" ? (
-            <>
-              <p className="text-base font-medium">
-                Geminiが動画を読んでいます…
-              </p>
-              <p className="text-sm text-white/80">
-                アップロードと解析で1分ほどかかることがあります
-              </p>
-            </>
           ) : (
             <>
-              <p className="text-base font-medium">AIが解析しています…</p>
+              <p className="text-base font-medium">AIコーチが解析しています…</p>
               <p className="text-sm text-white/80">
-                20秒ほどかかることがあります
+                動画を読み、知識で講評します（1分ほどかかることがあります）
               </p>
             </>
           )}
