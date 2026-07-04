@@ -42,3 +42,7 @@ next-env.d.ts
 
 # Claude Code のローカル個人設定（共有しない）
 .claude/settings.local.json
+
+# テスト用の動画（容量大・人が映るのでGitHubに上げない）
+/test-assets
+
