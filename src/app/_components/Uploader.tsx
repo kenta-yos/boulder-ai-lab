@@ -13,6 +13,7 @@ export function Uploader() {
   // コマ抽出まわり
   const [extractStatus, setExtractStatus] = useState<Status>("idle");
   const [frames, setFrames] = useState<string[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [extractError, setExtractError] = useState("");
   const [progress, setProgress] = useState("");
   // 入力（任意）
@@ -48,6 +49,7 @@ export function Uploader() {
     if (!file) return;
 
     // 新しい動画を選んだら、前回の結果を消す
+    setVideoFile(file);
     setFrames([]);
     setExtractError("");
     setFeedback(null);
@@ -72,15 +74,27 @@ export function Uploader() {
   }
 
   async function onDetectPose() {
+    if (!videoFile) {
+      setPoseError("動画がありません。先に動画を選んでください。");
+      setPoseStatus("error");
+      return;
+    }
     setPoseError("");
     setPoseOverlays([]);
     setPoseStatus("working");
-    setPoseProgress("姿勢モデルを読み込み中…（初回は数秒）");
     try {
+      // 姿勢検出は精度重視で、フル解像度(横1280px)のコマを取り直す
+      setPoseProgress("高解像度のコマを準備中…");
+      const hiFrames = await extractFrames(
+        videoFile,
+        (m) => setPoseProgress(m),
+        1280,
+      );
+      setPoseProgress("姿勢モデルを読み込み中…（初回は数秒）");
       const overlays: string[] = [];
-      for (let i = 0; i < frames.length; i++) {
-        setPoseProgress(`姿勢を検出中… ${i + 1}/${frames.length}`);
-        const { overlay } = await detectPoseOnFrame(frames[i]);
+      for (let i = 0; i < hiFrames.length; i++) {
+        setPoseProgress(`姿勢を検出中… ${i + 1}/${hiFrames.length}`);
+        const { overlay } = await detectPoseOnFrame(hiFrames[i]);
         overlays.push(overlay);
       }
       setPoseOverlays(overlays);

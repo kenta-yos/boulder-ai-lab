@@ -95,6 +95,7 @@ function seekTo(video: HTMLVideoElement, timeSec: number): Promise<void> {
 export async function extractFrames(
   file: File,
   onProgress?: OnProgress,
+  maxWidth = 640, // 横の最大px。姿勢検出用にフル解像度を使う時は大きくする。
 ): Promise<string[]> {
   const url = URL.createObjectURL(file);
   const video = document.createElement("video");
@@ -140,7 +141,6 @@ export async function extractFrames(
     onProgress?.("映像デコードを準備中…");
     await primeDecoding(video);
 
-    const maxWidth = 640;
     const scale = Math.min(1, maxWidth / video.videoWidth);
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
