@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ScreenShell } from "../../_components/ScreenShell";
+import { DeleteButton } from "../../_components/DeleteButton";
 import { prisma } from "../../_lib/db";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,8 @@ export default async function AnalysisDetailPage({
       <p className="mt-6 text-xs text-zinc-500 dark:text-zinc-400">
         ※ この画面ではチャットの続きはできません（登りの画像を保存していないため。将来 Blob 保存で対応予定）。
       </p>
+
+      <DeleteButton id={a.id} />
 
       <Link
         href="/records"
