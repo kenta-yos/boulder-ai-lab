@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { extractFrames } from "../_lib/extractFrames";
 import type { Feedback } from "../_lib/analyze";
+import { ChatBox } from "./ChatBox";
 
 type Status = "idle" | "working" | "done" | "error";
 
@@ -165,6 +166,9 @@ export function Uploader() {
               {feedback.prescription}
             </p>
           </div>
+
+          {/* 深掘りチャット */}
+          <ChatBox frames={frames} feedback={feedback} grade={grade || undefined} />
         </div>
       )}
 
