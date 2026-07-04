@@ -1,9 +1,8 @@
 "use client";
 
-// 動画を選び→ブラウザでコマ抽出→AIに解析させ→敗因＋処方を表示する。
-import { useEffect, useState } from "react";
+// 動画を選び→ブラウザでコマ抽出→動画プレーヤー＋コマタップで該当秒へジャンプ→AI解析→敗因＋処方→チャット。
+import { useEffect, useRef, useState } from "react";
 import { extractFrames } from "../_lib/extractFrames";
-import { detectPoseOnFrame } from "../_lib/pose";
 import type { Feedback } from "../_lib/analyze";
 import { ChatBox } from "./ChatBox";
 
@@ -13,7 +12,8 @@ export function Uploader() {
   // コマ抽出まわり
   const [extractStatus, setExtractStatus] = useState<Status>("idle");
   const [frames, setFrames] = useState<string[]>([]);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [frameTimes, setFrameTimes] = useState<number[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string>("");
   const [extractError, setExtractError] = useState("");
   const [progress, setProgress] = useState("");
   // 入力（任意）
@@ -22,18 +22,13 @@ export function Uploader() {
   const [analyzeStatus, setAnalyzeStatus] = useState<Status>("idle");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [analyzeError, setAnalyzeError] = useState("");
-  // 姿勢検出まわり（step 1: 確認用）
-  const [poseStatus, setPoseStatus] = useState<Status>("idle");
-  const [poseOverlays, setPoseOverlays] = useState<string[]>([]);
-  const [poseError, setPoseError] = useState("");
-  const [poseProgress, setPoseProgress] = useState("");
 
-  const busy =
-    extractStatus === "working" ||
-    analyzeStatus === "working" ||
-    poseStatus === "working";
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoUrlRef = useRef<string>("");
 
-  // 処理中は背景スクロールをロック（誤操作で中断しないため）
+  const busy = extractStatus === "working" || analyzeStatus === "working";
+
+  // 処理中は背景スクロールをロック
   useEffect(() => {
     if (busy) {
       const prev = document.body.style.overflow;
@@ -44,64 +39,53 @@ export function Uploader() {
     }
   }, [busy]);
 
+  // 後片付け：一時的な動画URLを解放
+  useEffect(() => {
+    return () => {
+      if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
+    };
+  }, []);
+
+  // コマをタップ → 動画をその秒へ移動して再生
+  function seekTo(tSec: number) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = tSec;
+    v.play().catch(() => {});
+    v.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   async function onSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 新しい動画を選んだら、前回の結果を消す
-    setVideoFile(file);
+    // 前回の結果を消す
     setFrames([]);
+    setFrameTimes([]);
     setExtractError("");
     setFeedback(null);
     setAnalyzeError("");
     setAnalyzeStatus("idle");
-    setPoseOverlays([]);
-    setPoseError("");
-    setPoseStatus("idle");
+
+    // 動画プレーヤー用の一時URLを作る（古いものは解放）
+    if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
+    const url = URL.createObjectURL(file);
+    videoUrlRef.current = url;
+    setVideoUrl(url);
+
     setProgress("準備中…");
     setExtractStatus("working");
 
     try {
       const result = await extractFrames(file, (msg) => setProgress(msg));
-      setFrames(result);
+      setFrames(result.map((r) => r.dataUrl));
+      setFrameTimes(result.map((r) => r.tSec));
       setExtractStatus("done");
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : "コマ抽出に失敗しました");
       setExtractStatus("error");
     } finally {
-      e.target.value = ""; // 同じ動画を選び直せるようにリセット
-    }
-  }
-
-  async function onDetectPose() {
-    if (!videoFile) {
-      setPoseError("動画がありません。先に動画を選んでください。");
-      setPoseStatus("error");
-      return;
-    }
-    setPoseError("");
-    setPoseOverlays([]);
-    setPoseStatus("working");
-    try {
-      // 姿勢検出は精度重視で、フル解像度(横1280px)のコマを取り直す
-      setPoseProgress("高解像度のコマを準備中…");
-      const hiFrames = await extractFrames(
-        videoFile,
-        (m) => setPoseProgress(m),
-        1280,
-      );
-      setPoseProgress("姿勢モデルを読み込み中…（初回は数秒）");
-      const overlays: string[] = [];
-      for (let i = 0; i < hiFrames.length; i++) {
-        setPoseProgress(`姿勢を検出中… ${i + 1}/${hiFrames.length}`);
-        const { overlay } = await detectPoseOnFrame(hiFrames[i]);
-        overlays.push(overlay);
-      }
-      setPoseOverlays(overlays);
-      setPoseStatus("done");
-    } catch (err) {
-      setPoseError(err instanceof Error ? err.message : "姿勢検出に失敗しました");
-      setPoseStatus("error");
+      e.target.value = "";
     }
   }
 
@@ -159,68 +143,47 @@ export function Uploader() {
         </p>
       )}
 
-      {/* 切り出したコマ */}
+      {/* 動画プレーヤー＋コマ（タップで該当秒へ） */}
       {extractStatus === "done" && frames.length > 0 && (
         <div className="mt-6">
+          {videoUrl && (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              controls
+              playsInline
+              className="mb-3 w-full max-w-sm rounded-lg border border-black/10 dark:border-white/15"
+            />
+          )}
           <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-300">
             切り出したコマ（{frames.length}枚）
+            <span className="text-zinc-400">
+              {" "}
+              — タップすると動画がその瞬間に飛びます
+            </span>
           </p>
           <div className="grid grid-cols-3 gap-2">
             {frames.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <button
                 key={i}
-                src={src}
-                alt={`コマ ${i + 1}`}
-                className="w-full rounded-lg border border-black/10 dark:border-white/15"
-              />
+                type="button"
+                onClick={() => seekTo(frameTimes[i] ?? 0)}
+                className="overflow-hidden rounded-lg border border-black/10 transition-opacity hover:opacity-80 dark:border-white/15"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`コマ ${i + 1}`} className="w-full" />
+              </button>
             ))}
           </div>
 
-          {/* ボタン2つ */}
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={onAnalyze}
-              className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
-            >
-              AIに解析してもらう
-            </button>
-            <button
-              type="button"
-              onClick={onDetectPose}
-              className="inline-flex items-center gap-2 rounded-full border border-black/20 px-6 py-3 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/25 dark:hover:bg-white/10"
-            >
-              姿勢を検出（確認）
-            </button>
-          </div>
-
-          {/* 姿勢検出のエラー */}
-          {poseStatus === "error" && poseError && (
-            <p className="mt-4 text-sm text-red-600 dark:text-red-400">
-              {poseError}
-            </p>
-          )}
-
-          {/* 姿勢検出の確認画像（関節点を重ねたもの） */}
-          {poseStatus === "done" && poseOverlays.length > 0 && (
-            <div className="mt-6">
-              <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-300">
-                姿勢検出の確認（緑：骨格 / 赤：関節点）
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {poseOverlays.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={src}
-                    alt={`姿勢 ${i + 1}`}
-                    className="w-full rounded-lg border border-black/10 dark:border-white/15"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* AIに解析してもらうボタン */}
+          <button
+            type="button"
+            onClick={onAnalyze}
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+          >
+            AIに解析してもらう
+          </button>
         </div>
       )}
 
@@ -231,7 +194,7 @@ export function Uploader() {
         </p>
       )}
 
-      {/* 解析結果（敗因＋処方） */}
+      {/* 解析結果（敗因＋処方）＋チャット */}
       {analyzeStatus === "done" && feedback && (
         <div className="mt-8 space-y-4">
           <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
@@ -249,12 +212,11 @@ export function Uploader() {
             </p>
           </div>
 
-          {/* 深掘りチャット */}
           <ChatBox frames={frames} feedback={feedback} grade={grade || undefined} />
         </div>
       )}
 
-      {/* 処理中の覆い（全画面・操作をブロック） */}
+      {/* 処理中の覆い */}
       {busy && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70 px-8 text-center text-white backdrop-blur-sm"
@@ -265,11 +227,6 @@ export function Uploader() {
             <>
               <p className="text-base font-medium">コマを切り出しています…</p>
               <p className="text-sm text-white/80">{progress}</p>
-            </>
-          ) : poseStatus === "working" ? (
-            <>
-              <p className="text-base font-medium">姿勢を検出しています…</p>
-              <p className="text-sm text-white/80">{poseProgress}</p>
             </>
           ) : (
             <>

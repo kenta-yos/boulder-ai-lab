@@ -1,8 +1,14 @@
 // 動画ファイルから、等間隔に数枚の静止画（コマ）を切り出す部品。
 // すべてブラウザの中だけで動く（動画をサーバーに送らない）。
-// 返り値は、各コマの画像データ（data URL 文字列）の配列。
+// 返り値は、各コマの「画像データ(data URL)」と「動画内の秒数」の配列。
 
 type OnProgress = (message: string) => void;
+
+// 1コマ：画像と、その動画内の位置（秒）
+export type Frame = {
+  dataUrl: string;
+  tSec: number;
+};
 
 // iPhone等で使える「新しいコマが描かれた合図」の型（標準の型に無い場合の補助）
 type VideoWithFrameCallback = HTMLVideoElement & {
@@ -95,8 +101,8 @@ function seekTo(video: HTMLVideoElement, timeSec: number): Promise<void> {
 export async function extractFrames(
   file: File,
   onProgress?: OnProgress,
-  maxWidth = 640, // 横の最大px。姿勢検出用にフル解像度を使う時は大きくする。
-): Promise<string[]> {
+  maxWidth = 640, // 横の最大px
+): Promise<Frame[]> {
   const url = URL.createObjectURL(file);
   const video = document.createElement("video");
   video.src = url;
@@ -148,13 +154,13 @@ export async function extractFrames(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("画像の描画に失敗しました");
 
-    const frames: string[] = [];
+    const frames: Frame[] = [];
     for (let i = 0; i < count; i++) {
       onProgress?.(`コマ ${i + 1}/${count} を取得中…`);
       const t = duration * ((i + 0.5) / count);
       await seekTo(video, t);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push(canvas.toDataURL("image/jpeg", 0.8));
+      frames.push({ dataUrl: canvas.toDataURL("image/jpeg", 0.8), tSec: t });
     }
 
     onProgress?.(`完了：${frames.length}枚を切り出しました`);
