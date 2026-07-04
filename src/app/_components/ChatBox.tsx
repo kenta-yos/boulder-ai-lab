@@ -100,7 +100,7 @@ export function ChatBox({ frames, feedback, grade }: Props) {
           rows={1}
           placeholder="質問を入力…"
           disabled={sending}
-          className="min-w-0 flex-1 resize-none rounded-2xl border border-black/15 bg-transparent px-4 py-2 text-sm leading-6 dark:border-white/20"
+          className="min-w-0 flex-1 resize-none rounded-2xl border border-black/15 bg-transparent px-4 py-2 text-base leading-6 dark:border-white/20"
         />
         <button
           type="button"

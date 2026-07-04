@@ -91,7 +91,7 @@ export function Uploader() {
           value={grade}
           onChange={(e) => setGrade(e.target.value)}
           placeholder="未入力でもOK"
-          className="w-full max-w-xs rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20"
+          className="w-full max-w-xs rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
         />
       </label>
 
