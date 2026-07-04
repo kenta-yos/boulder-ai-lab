@@ -1,17 +1,20 @@
+import Link from "next/link";
 import { ScreenShell, ComingSoon } from "../_components/ScreenShell";
 
-// ② 解析結果画面（アプリの顔）
+// ② 解析結果画面（トップ・記録から選ぶ案内）
 export default function AnalysisPage() {
   return (
     <ScreenShell
       badge="②"
       title="解析結果"
-      description="敗因（なぜ落ちたか）と処方（どうすれば成功するか）を表示し、下のチャットで深掘りします。"
+      description="過去の解析の詳細（敗因・処方）をここで見ます。"
     >
       <ComingSoon>
-        ここに「一言サマリー（敗因＋処方）」と「深掘りチャット」が入ります。
+        「記録」タブで見たい解析をタップすると、ここに敗因・処方が表示されます。
         <br />
-        （敗因・処方はステップ5、チャットはステップ6で作ります。）
+        <Link href="/records" className="underline">
+          記録を開く
+        </Link>
       </ComingSoon>
     </ScreenShell>
   );

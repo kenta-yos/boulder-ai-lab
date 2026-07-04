@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ScreenShell, ComingSoon } from "../_components/ScreenShell";
 import { prisma } from "../_lib/db";
 
@@ -26,30 +27,32 @@ export default async function RecordsPage() {
       ) : (
         <ul className="space-y-3">
           {analyses.map((a) => (
-            <li
-              key={a.id}
-              className="flex gap-3 rounded-xl border border-black/10 p-3 dark:border-white/15"
-            >
-              {a.thumbnail ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={a.thumbnail}
-                  alt="サムネ"
-                  className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-black/5 dark:bg-white/10" />
-              )}
-              <div className="min-w-0">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {new Date(a.createdAt).toLocaleString("ja-JP")}
-                  {a.grade ? ` ・ ${a.grade}` : ""}
-                  {a.gym ? ` ・ ${a.gym}` : ""}
-                </p>
-                <p className="mt-1 line-clamp-3 text-sm leading-6">
-                  {a.summary}
-                </p>
-              </div>
+            <li key={a.id}>
+              <Link
+                href={`/analysis/${a.id}`}
+                className="flex gap-3 rounded-xl border border-black/10 p-3 transition-colors hover:bg-black/[.03] dark:border-white/15 dark:hover:bg-white/[.06]"
+              >
+                {a.thumbnail ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={a.thumbnail}
+                    alt="サムネ"
+                    className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-black/5 dark:bg-white/10" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {new Date(a.createdAt).toLocaleString("ja-JP")}
+                    {a.grade ? ` ・ ${a.grade}` : ""}
+                    {a.gym ? ` ・ ${a.gym}` : ""}
+                  </p>
+                  <p className="mt-1 line-clamp-3 text-sm leading-6">
+                    {a.summary}
+                  </p>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>

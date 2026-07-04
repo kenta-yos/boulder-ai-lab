@@ -1,0 +1,69 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ScreenShell } from "../../_components/ScreenShell";
+import { prisma } from "../../_lib/db";
+
+export const dynamic = "force-dynamic";
+
+// ② 解析結果（過去記録の詳細）
+export default async function AnalysisDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const a = await prisma.analysis.findUnique({ where: { id } });
+
+  if (!a) {
+    notFound();
+  }
+
+  return (
+    <ScreenShell
+      badge="②"
+      title="解析結果"
+      description={
+        new Date(a.createdAt).toLocaleString("ja-JP") +
+        (a.grade ? ` ・ ${a.grade}` : "") +
+        (a.gym ? ` ・ ${a.gym}` : "")
+      }
+    >
+      {a.thumbnail && (
+        <div className="mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={a.thumbnail}
+            alt="サムネ"
+            className="w-40 rounded-lg border border-black/10 dark:border-white/15"
+          />
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+          <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">
+            敗因（なぜ落ちたか）
+          </p>
+          <p className="whitespace-pre-wrap leading-7">{a.summary}</p>
+        </div>
+        <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+          <p className="mb-1 text-xs font-semibold text-green-700 dark:text-green-400">
+            処方（どうすれば成功するか）
+          </p>
+          <p className="whitespace-pre-wrap leading-7">{a.prescription}</p>
+        </div>
+      </div>
+
+      <p className="mt-6 text-xs text-zinc-500 dark:text-zinc-400">
+        ※ この画面ではチャットの続きはできません（登りの画像を保存していないため。将来 Blob 保存で対応予定）。
+      </p>
+
+      <Link
+        href="/records"
+        className="mt-4 inline-block text-sm text-zinc-600 underline dark:text-zinc-300"
+      >
+        ← 記録一覧に戻る
+      </Link>
+    </ScreenShell>
+  );
+}
