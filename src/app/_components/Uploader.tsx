@@ -1,68 +1,95 @@
 "use client";
 
 // 動画を選び、ブラウザでコマを切り出してプレビュー表示する部分。
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { extractFrames } from "../_lib/extractFrames";
 
 type Status = "idle" | "working" | "done" | "error";
 
 export function Uploader() {
   const [status, setStatus] = useState<Status>("idle");
-  const [fileName, setFileName] = useState<string>("");
   const [frames, setFrames] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [logs, setLogs] = useState<string[]>([]);
+  // プログラム(JavaScript)がこの端末で起動しているかの目印。
+  // 起動していれば true になり「準備OK」が表示される。
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  function addLog(line: string) {
+    setLogs((prev) => [...prev, line]);
+  }
 
   async function onSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setFileName(file.name);
+    setLogs(["① ファイル選択を受け取りました"]);
     setFrames([]);
     setErrorMsg("");
     setStatus("working");
 
+    const file = e.target.files?.[0];
+    if (!file) {
+      addLog("⚠ ファイルが空でした（選択キャンセルの可能性）");
+      setStatus("error");
+      setErrorMsg("動画が選ばれませんでした。もう一度お試しください。");
+      return;
+    }
+
+    addLog(
+      `② ファイル情報: 名前=${file.name} / 種類=${file.type || "不明"} / サイズ=${(
+        file.size /
+        (1024 * 1024)
+      ).toFixed(1)}MB`,
+    );
+
     try {
-      const result = await extractFrames(file, 6);
+      const result = await extractFrames(file, 6, addLog);
       setFrames(result);
       setStatus("done");
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "解析に失敗しました");
+      const msg = err instanceof Error ? err.message : "解析に失敗しました";
+      addLog(`✕ エラー: ${msg}`);
+      setErrorMsg(msg);
       setStatus("error");
     }
   }
 
   return (
     <div>
-      {/* 動画を選ぶボタン（中身のinputは隠して、ラベル全体を押せるボタンにする） */}
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90">
-        動画を選ぶ
-        <input
-          type="file"
-          accept="video/*"
-          className="hidden"
-          onChange={onSelect}
-        />
-      </label>
+      {/* バージョン印と、プログラム起動の目印 */}
+      <p className="mb-3 text-xs text-zinc-400">
+        診断版 v3 —{" "}
+        {mounted ? (
+          <span className="text-green-600 dark:text-green-400">
+            準備OK（動画を選べます）
+          </span>
+        ) : (
+          <span>読み込み中…（この表示のままなら知らせてください）</span>
+        )}
+      </p>
 
-      {/* 選んだファイル名 */}
-      {fileName && (
-        <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-          選択中: {fileName}
-        </p>
-      )}
+      {/* 動画選択欄（今回は隠さず、普通の選択ボタンにする） */}
+      <input
+        type="file"
+        accept="video/*"
+        onChange={onSelect}
+        className="block text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-foreground file:px-5 file:py-2.5 file:text-sm file:font-medium file:text-background"
+      />
 
-      {/* 処理中の表示 */}
-      {status === "working" && (
-        <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">
-          コマを切り出しています…
-        </p>
+      {/* 診断ログ */}
+      {logs.length > 0 && (
+        <div className="mt-4 rounded-lg bg-black/5 p-3 text-xs leading-6 text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
+          {logs.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
       )}
 
       {/* エラー表示 */}
-      {status === "error" && (
-        <p className="mt-4 text-sm text-red-600 dark:text-red-400">
-          {errorMsg}
-        </p>
+      {status === "error" && errorMsg && (
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
       )}
 
       {/* 切り出したコマのプレビュー（3列グリッド） */}
