@@ -19,4 +19,5 @@ model Analysis {
   summary      String // 敗因
   prescription String // 処方
   thumbnail    String? // 先頭コマのサムネ（data URL）
+  scores       Json? // 技術8軸のスコア（[{skill,score,evidence}]）
 }

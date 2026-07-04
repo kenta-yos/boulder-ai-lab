@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         summary: feedback.summary,
         prescription: feedback.prescription,
         thumbnail: typeof thumbnail === "string" ? thumbnail : null,
+        scores: feedback.scores ?? undefined,
       },
     });
 

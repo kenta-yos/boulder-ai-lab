@@ -2,6 +2,7 @@
 // サーバー側でだけ動く（APIキーを使うため、ブラウザには出さない）。
 import Anthropic from "@anthropic-ai/sdk";
 import type { Analyzer } from "./analyze";
+import { SKILLS } from "./analyze";
 
 // 使うモデル。より安く抑えたいときはここを "claude-haiku-4-5" などに変えるだけ。
 const MODEL = "claude-opus-4-8";
@@ -10,9 +11,10 @@ const MODEL = "claude-opus-4-8";
 const SYSTEM = `あなたはボルダリングの経験豊富なコーチです。
 1回のトライを時系列に並べた数枚の静止画（動画から抜き出したコマ）を見て、日本語で講評します。
 
-出力は次の2点だけに絞ってください。休憩中に数秒で読める密度にします。
+出力は次を返してください。summary/prescriptionは休憩中に数秒で読める密度にします。
 - summary（敗因）：なぜ落ちた/停滞したと考えられるか。最も重要な原因を1〜2点、具体的に。
 - prescription（処方）：次のトライでどう変えれば成功に近づくか。具体的な体の使い方で。
+- scores（技術8軸の採点）：下の8軸すべてについて、0〜100の点数(このグレードの理想を100とする相対評価)と、一言の根拠(evidence)。読み取れない軸は50前後・低信頼として控えめに。
 
 指摘は次の技術軸の言葉を使って具体的にしてください：フットワーク / ボディテンション(支持) / 重心・バランス / 腰の位置 / 保持 / 力の方向 / ムーブ効率 / ダイナミクス。
 
@@ -61,7 +63,7 @@ export const analyzeWithClaude: Analyzer = async (input) => {
         content: [...imageBlocks, { type: "text", text: userText }],
       },
     ],
-    // 出力を必ず {summary, prescription} の形に固定する（構造化出力）
+    // 出力を必ず {summary, prescription, scores} の形に固定する（構造化出力）
     output_config: {
       format: {
         type: "json_schema",
@@ -73,8 +75,22 @@ export const analyzeWithClaude: Analyzer = async (input) => {
               type: "string",
               description: "処方：どうすれば成功するか",
             },
+            scores: {
+              type: "array",
+              description: "技術8軸の採点（8軸すべて）",
+              items: {
+                type: "object",
+                properties: {
+                  skill: { type: "string", enum: [...SKILLS] },
+                  score: { type: "integer" },
+                  evidence: { type: "string" },
+                },
+                required: ["skill", "score", "evidence"],
+                additionalProperties: false,
+              },
+            },
           },
-          required: ["summary", "prescription"],
+          required: ["summary", "prescription", "scores"],
           additionalProperties: false,
         },
       },
@@ -90,7 +106,12 @@ export const analyzeWithClaude: Analyzer = async (input) => {
   return {
     summary: parsed.summary ?? "",
     prescription: parsed.prescription ?? "",
+    scores: parsed.scores ?? [],
   };
 };
 
-type Feedbackish = { summary?: string; prescription?: string };
+type Feedbackish = {
+  summary?: string;
+  prescription?: string;
+  scores?: { skill: string; score: number; evidence: string }[];
+};

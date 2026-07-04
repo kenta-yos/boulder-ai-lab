@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { extractFrames } from "../_lib/extractFrames";
 import type { Feedback } from "../_lib/analyze";
 import { ChatBox } from "./ChatBox";
+import { ScoreBars } from "./ScoreBars";
 
 type Status = "idle" | "working" | "done" | "error";
 
@@ -259,6 +260,15 @@ export function Uploader() {
               {feedback.prescription}
             </p>
           </div>
+
+          {feedback.scores && feedback.scores.length > 0 && (
+            <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+              <p className="mb-3 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                技術8軸のスコア
+              </p>
+              <ScoreBars scores={feedback.scores} />
+            </div>
+          )}
 
           <ChatBox frames={frames} feedback={feedback} grade={grade || undefined} />
         </div>

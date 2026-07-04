@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ScreenShell } from "../../_components/ScreenShell";
 import { DeleteButton } from "../../_components/DeleteButton";
+import { ScoreBars } from "../../_components/ScoreBars";
 import { prisma } from "../../_lib/db";
+import type { SkillScore } from "../../_lib/analyze";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,15 @@ export default async function AnalysisDetailPage({
           </p>
           <p className="whitespace-pre-wrap leading-7">{a.prescription}</p>
         </div>
+
+        {Array.isArray(a.scores) && a.scores.length > 0 && (
+          <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+            <p className="mb-3 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              技術8軸のスコア
+            </p>
+            <ScoreBars scores={a.scores as unknown as SkillScore[]} />
+          </div>
+        )}
       </div>
 
       <p className="mt-6 text-xs text-zinc-500 dark:text-zinc-400">

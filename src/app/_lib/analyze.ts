@@ -10,10 +10,30 @@ export type AnalyzeInput = {
   note?: string; // メモ・落ちた箇所など（任意）
 };
 
-// 解析の出力（アプリの顔＝②画面に出す2点）
+// 採点する技術8軸（SPEC 6.1）
+export const SKILLS = [
+  "フットワーク",
+  "ボディテンション",
+  "重心・バランス",
+  "腰の位置",
+  "保持",
+  "力の方向",
+  "ムーブ効率",
+  "ダイナミクス",
+] as const;
+
+// 1つの技術軸のスコア
+export type SkillScore = {
+  skill: string; // 技術軸名（SKILLSのいずれか）
+  score: number; // 0〜100
+  evidence: string; // 一言の根拠
+};
+
+// 解析の出力（アプリの顔＝②画面に出す）
 export type Feedback = {
   summary: string; // 敗因：なぜ落ちたか
   prescription: string; // 処方：どうすれば成功するか
+  scores?: SkillScore[]; // 技術8軸のスコア
 };
 
 // 差し替え可能な解析関数の型

@@ -3,15 +3,17 @@
 // 動画は Gemini の File API にアップロードしてから読ませる。
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Feedback } from "./analyze";
+import { SKILLS } from "./analyze";
 
 const MODEL = "gemini-2.5-flash";
 
 const SYSTEM = `あなたはボルダリングの経験豊富なコーチです。
 1回のトライを撮った動画を見て、動きの流れ・タイミング・体の使い方を踏まえ、日本語で講評します。
 
-出力は次の2点だけに絞ってください。休憩中に数秒で読める密度にします。
+出力は次を返してください。summary/prescriptionは休憩中に数秒で読める密度にします。
 - summary（敗因）：なぜ落ちた/停滞したと考えられるか。最も重要な原因を1〜2点、具体的に。
 - prescription（処方）：次のトライでどう変えれば成功に近づくか。具体的な体の使い方で。
+- scores（技術8軸の採点）：8軸すべてについて、0〜100の点数(このグレードの理想を100とする相対評価)と、一言の根拠(evidence)。読み取れない軸は50前後・低信頼として控えめに。
 
 技術軸の言葉（フットワーク/ボディテンション/重心・バランス/腰の位置/保持/力の方向/ムーブ効率/ダイナミクス）を使い、専門用語には一言添えてください。
 静止画ではなく動画なので、動きの速さ・ためらい・タイミングにも触れてください。
@@ -68,8 +70,20 @@ export async function analyzeVideoWithGemini(
         properties: {
           summary: { type: Type.STRING },
           prescription: { type: Type.STRING },
+          scores: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                skill: { type: Type.STRING, enum: [...SKILLS] },
+                score: { type: Type.INTEGER },
+                evidence: { type: Type.STRING },
+              },
+              required: ["skill", "score", "evidence"],
+            },
+          },
         },
-        required: ["summary", "prescription"],
+        required: ["summary", "prescription", "scores"],
       },
     },
   });
@@ -78,9 +92,11 @@ export async function analyzeVideoWithGemini(
   const parsed = JSON.parse(text) as {
     summary?: string;
     prescription?: string;
+    scores?: { skill: string; score: number; evidence: string }[];
   };
   return {
     summary: parsed.summary ?? "",
     prescription: parsed.prescription ?? "",
+    scores: parsed.scores ?? [],
   };
 }

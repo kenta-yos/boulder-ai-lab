@@ -35,6 +35,7 @@ export async function POST(request: Request) {
         summary: feedback.summary,
         prescription: feedback.prescription,
         thumbnail: frames[0] ?? null,
+        scores: feedback.scores ?? undefined,
       },
     });
 
