@@ -11,8 +11,11 @@ export type Frame = {
 };
 
 // iPhone等で使える「新しいコマが描かれた合図」の型（標準の型に無い場合の補助）
+// metadata.mediaTime = 実際に描画されたコマの正確な秒数。
 type VideoWithFrameCallback = HTMLVideoElement & {
-  requestVideoFrameCallback?: (cb: () => void) => number;
+  requestVideoFrameCallback?: (
+    cb: (now: number, metadata: { mediaTime: number }) => void,
+  ) => number;
 };
 
 // 指定イベントのどれか（複数可）が起きるまで待つ。error か時間切れなら失敗。
@@ -56,23 +59,40 @@ async function primeDecoding(video: HTMLVideoElement): Promise<void> {
   }
 }
 
-// 動画を指定秒へ移動し、その位置の絵が用意できるまで待つ。
-// seeked と requestVideoFrameCallback の両方で完了を検知する（取りこぼし防止）。
-function seekTo(video: HTMLVideoElement, timeSec: number): Promise<void> {
+// 動画を指定秒へ移動し、「実際に描画されたコマ」を canvas に描いて、
+// そのコマの画像(data URL)と正確な秒数(mediaTime)をセットで返す。
+// 画像と秒を同じ瞬間に取ることで、両者のズレを無くす。
+function seekAndCapture(
+  video: HTMLVideoElement,
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  timeSec: number,
+): Promise<{ dataUrl: string; tSec: number }> {
   return new Promise((resolve, reject) => {
     let settled = false;
+    const v = video as VideoWithFrameCallback;
     const cleanup = () => {
       clearTimeout(timer);
       video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("error", onErr);
     };
-    const done = () => {
+    const capture = (mediaTime: number) => {
       if (settled) return;
       settled = true;
+      video.pause();
       cleanup();
-      resolve();
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      resolve({
+        dataUrl: canvas.toDataURL("image/jpeg", 0.8),
+        tSec: mediaTime,
+      });
     };
-    const onSeeked = () => done();
+    const onSeeked = () => {
+      // requestVideoFrameCallback 非対応の環境向けフォールバック
+      if (typeof v.requestVideoFrameCallback !== "function") {
+        capture(video.currentTime);
+      }
+    };
     const onErr = () => {
       if (settled) return;
       settled = true;
@@ -90,11 +110,12 @@ function seekTo(video: HTMLVideoElement, timeSec: number): Promise<void> {
     video.addEventListener("error", onErr);
 
     video.currentTime = timeSec;
-
-    const v = video as VideoWithFrameCallback;
     if (typeof v.requestVideoFrameCallback === "function") {
-      v.requestVideoFrameCallback(() => done());
+      // 実際に描画されたコマの正確な秒(mediaTime)で捉える
+      v.requestVideoFrameCallback((_now, metadata) => capture(metadata.mediaTime));
     }
+    // iOSで描画を確実に起こすため一瞬だけ再生（captureで即停止）
+    video.play().catch(() => {});
   });
 }
 
@@ -158,14 +179,9 @@ export async function extractFrames(
     for (let i = 0; i < count; i++) {
       onProgress?.(`コマ ${i + 1}/${count} を取得中…`);
       const t = duration * ((i + 0.5) / count);
-      await seekTo(video, t);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // 狙った t ではなく、実際に飛んだ位置(currentTime)を保存する。
-      // これでタップ時のジャンプ先が切り出した瞬間と一致しやすい。
-      frames.push({
-        dataUrl: canvas.toDataURL("image/jpeg", 0.8),
-        tSec: video.currentTime,
-      });
+      // 画像と正確な秒を同じ瞬間に取得（両者のズレを防ぐ）
+      const frame = await seekAndCapture(video, ctx, canvas, t);
+      frames.push(frame);
     }
 
     onProgress?.(`完了：${frames.length}枚を切り出しました`);
