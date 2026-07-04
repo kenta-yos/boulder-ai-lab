@@ -52,23 +52,13 @@ export function Uploader() {
     if (videoRef.current) videoRef.current.muted = true;
   }, [videoUrl]);
 
-  // コマをタップ → 動画をその秒へ移動し、移動完了の瞬間に一時停止して表示。
-  // iPhoneは一時停止中のシークで画面が描き替わらないことがあるため、
-  // 一瞬だけ再生を促して描画させ、seeked(移動完了)で即停止する。
+  // コマをタップ → 動画をその秒へ移動して、そこから再生する。
   function seekTo(tSec: number) {
     const v = videoRef.current;
     if (!v) return;
-    v.scrollIntoView({ behavior: "smooth", block: "center" });
-
-    const onSeeked = () => {
-      v.pause();
-      v.removeEventListener("seeked", onSeeked);
-    };
-    v.addEventListener("seeked", onSeeked);
-
     v.currentTime = tSec;
-    // iOSで描画を確実にするため一瞬だけ再生（seekedで即止める）
     v.play().catch(() => {});
+    v.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   async function onSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -166,9 +156,11 @@ export function Uploader() {
             <video
               ref={videoRef}
               src={videoUrl}
+              poster={frames[0]}
               controls
               playsInline
               muted
+              preload="metadata"
               className="mb-3 w-full max-w-sm rounded-lg border border-black/10 dark:border-white/15"
             />
           )}
