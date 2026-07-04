@@ -14,6 +14,7 @@ export function Uploader() {
   const [frames, setFrames] = useState<string[]>([]);
   const [frameTimes, setFrameTimes] = useState<number[]>([]);
   const [videoUrl, setVideoUrl] = useState<string>("");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [extractError, setExtractError] = useState("");
   const [progress, setProgress] = useState("");
   // 入力（任意）
@@ -22,6 +23,8 @@ export function Uploader() {
   const [analyzeStatus, setAnalyzeStatus] = useState<Status>("idle");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [analyzeError, setAnalyzeError] = useState("");
+  // どちらの解析か（静止画=Claude / 動画=Gemini）で覆いの文言を変える
+  const [analyzeKind, setAnalyzeKind] = useState<"frames" | "video">("frames");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoUrlRef = useRef<string>("");
@@ -65,6 +68,7 @@ export function Uploader() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setVideoFile(file);
     // 前回の結果を消す
     setFrames([]);
     setFrameTimes([]);
@@ -98,6 +102,7 @@ export function Uploader() {
   async function onAnalyze() {
     setAnalyzeError("");
     setFeedback(null);
+    setAnalyzeKind("frames");
     setAnalyzeStatus("working");
     try {
       const res = await fetch("/api/analyze", {
@@ -111,6 +116,31 @@ export function Uploader() {
       setAnalyzeStatus("done");
     } catch (err) {
       setAnalyzeError(err instanceof Error ? err.message : "解析に失敗しました");
+      setAnalyzeStatus("error");
+    }
+  }
+
+  async function onAnalyzeVideo() {
+    if (!videoFile) return;
+    setAnalyzeError("");
+    setFeedback(null);
+    setAnalyzeKind("video");
+    setAnalyzeStatus("working");
+    try {
+      const form = new FormData();
+      form.append("video", videoFile);
+      if (grade) form.append("grade", grade);
+      if (frames[0]) form.append("thumbnail", frames[0]);
+      const res = await fetch("/api/analyze-video", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "動画解析に失敗しました");
+      setFeedback({ summary: data.summary, prescription: data.prescription });
+      setAnalyzeStatus("done");
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : "動画解析に失敗しました");
       setAnalyzeStatus("error");
     }
   }
@@ -185,14 +215,23 @@ export function Uploader() {
             ))}
           </div>
 
-          {/* AIに解析してもらうボタン */}
-          <button
-            type="button"
-            onClick={onAnalyze}
-            className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
-          >
-            AIに解析してもらう
-          </button>
+          {/* 解析ボタン（静止画Claude / 動画Gemini） */}
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={onAnalyze}
+              className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+            >
+              静止画で解析（Claude）
+            </button>
+            <button
+              type="button"
+              onClick={onAnalyzeVideo}
+              className="inline-flex items-center gap-2 rounded-full border border-black/20 px-6 py-3 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/25 dark:hover:bg-white/10"
+            >
+              動画で解析（Gemini）
+            </button>
+          </div>
         </div>
       )}
 
@@ -236,6 +275,15 @@ export function Uploader() {
             <>
               <p className="text-base font-medium">コマを切り出しています…</p>
               <p className="text-sm text-white/80">{progress}</p>
+            </>
+          ) : analyzeKind === "video" ? (
+            <>
+              <p className="text-base font-medium">
+                Geminiが動画を読んでいます…
+              </p>
+              <p className="text-sm text-white/80">
+                アップロードと解析で1分ほどかかることがあります
+              </p>
             </>
           ) : (
             <>
