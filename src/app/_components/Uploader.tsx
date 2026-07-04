@@ -2,12 +2,19 @@
 
 // 動画を選び→ブラウザでコマ抽出→動画プレーヤー＋コマタップで該当秒へジャンプ→AI解析→敗因＋処方→チャット。
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { extractFrames } from "../_lib/extractFrames";
 import type { Feedback } from "../_lib/analyze";
 import { ChatBox } from "./ChatBox";
 import { ScoreBars } from "./ScoreBars";
 
 type Status = "idle" | "working" | "done" | "error";
+
+type GymOption = {
+  id: string;
+  name: string;
+  grades: { id: string; label: string }[];
+};
 
 // 秒 → m:ss 表記
 function formatTime(sec: number): string {
@@ -17,7 +24,12 @@ function formatTime(sec: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
-export function Uploader() {
+export function Uploader({ gyms }: { gyms: GymOption[] }) {
+  // ジム・グレード（マスタから選択）
+  const [gymId, setGymId] = useState("");
+  const [gradeLabel, setGradeLabel] = useState("");
+  const selectedGym = gyms.find((g) => g.id === gymId);
+
   // コマ抽出まわり
   const [extractStatus, setExtractStatus] = useState<Status>("idle");
   const [frames, setFrames] = useState<string[]>([]);
@@ -26,8 +38,6 @@ export function Uploader() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [extractError, setExtractError] = useState("");
   const [progress, setProgress] = useState("");
-  // 入力（任意）
-  const [grade, setGrade] = useState("");
   // AI解析まわり
   const [analyzeStatus, setAnalyzeStatus] = useState<Status>("idle");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -116,7 +126,8 @@ export function Uploader() {
       const form = new FormData();
       form.append("video", videoFile);
       form.append("frames", JSON.stringify(frames));
-      if (grade) form.append("grade", grade);
+      if (selectedGym) form.append("gym", selectedGym.name);
+      if (gradeLabel) form.append("grade", gradeLabel);
       if (frames[0]) form.append("thumbnail", frames[0]);
       const res = await fetch("/api/analyze-integrated", {
         method: "POST",
@@ -139,19 +150,53 @@ export function Uploader() {
 
   return (
     <div>
-      {/* グレード入力（任意） */}
-      <label className="mb-4 block">
-        <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-          グレード（任意・例：3級）
-        </span>
-        <input
-          type="text"
-          value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-          placeholder="未入力でもOK"
-          className="w-full max-w-xs rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
-        />
-      </label>
+      {/* ジム・グレード（マスタから選択・任意） */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+            ジム（任意）
+          </span>
+          <select
+            value={gymId}
+            onChange={(e) => {
+              setGymId(e.target.value);
+              setGradeLabel("");
+            }}
+            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
+          >
+            <option value="">未選択</option>
+            {gyms.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+            グレード（任意）
+          </span>
+          <select
+            value={gradeLabel}
+            onChange={(e) => setGradeLabel(e.target.value)}
+            disabled={!selectedGym}
+            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base disabled:opacity-50 dark:border-white/20"
+          >
+            <option value="">未選択</option>
+            {selectedGym?.grades.map((gr) => (
+              <option key={gr.id} value={gr.label}>
+                {gr.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <Link
+        href="/settings"
+        className="mb-4 inline-block text-xs text-zinc-500 underline dark:text-zinc-400"
+      >
+        ジム・グレードを登録/編集
+      </Link>
 
       {/* 動画を選ぶボタン */}
       <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90">
@@ -279,7 +324,11 @@ export function Uploader() {
             </div>
           )}
 
-          <ChatBox frames={frames} feedback={feedback} grade={grade || undefined} />
+          <ChatBox
+            frames={frames}
+            feedback={feedback}
+            grade={gradeLabel || undefined}
+          />
         </div>
       )}
 

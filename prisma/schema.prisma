@@ -14,10 +14,28 @@ datasource db {
 model Analysis {
   id           String   @id @default(cuid())
   createdAt    DateTime @default(now())
-  gym          String? // ジム名（任意）
-  grade        String? // グレード（任意）
+  gym          String? // ジム名（選択時のスナップショット）
+  grade        String? // グレード（選択時のスナップショット）
   summary      String // 敗因
   prescription String // 処方
   thumbnail    String? // 先頭コマのサムネ（data URL）
   scores       Json? // 技術8軸のスコア（[{skill,score,evidence}]）
+}
+
+// マスタ：ジム
+model Gym {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  grades    Grade[]
+}
+
+// マスタ：グレード（ジムごと。ジムによって基準が違うため Gym に紐づく）
+model Grade {
+  id         String   @id @default(cuid())
+  gymId      String
+  gym        Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  label      String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
 }

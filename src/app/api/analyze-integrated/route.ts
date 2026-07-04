@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     const video = form.get("video");
     const framesRaw = form.get("frames");
     const grade = form.get("grade");
+    const gym = form.get("gym");
     const thumbnail = form.get("thumbnail");
 
     if (!(video instanceof Blob)) {
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
 
     await prisma.analysis.create({
       data: {
+        gym: typeof gym === "string" && gym ? gym : null,
         grade: gradeStr ?? null,
         summary: feedback.summary,
         prescription: feedback.prescription,
