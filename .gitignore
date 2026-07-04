@@ -1,27 +1,44 @@
-# 秘密情報（APIキーやDB接続文字列）— 絶対にコミットしない
-.env
-.env.local
-.env*.local
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# 依存ライブラリ（巨大・再生成できる）
+# dependencies
 /node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Next.js のビルド生成物
-/.next
-/out
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
 /build
 
-# ログ・デバッグ
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# OS が作る不要ファイル
-.DS_Store
+# env files (can opt-in for committing if needed)
+.env*
 
-# エディタ設定
-.vscode
-.idea
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
 
 # Claude Code のローカル個人設定（共有しない）
 .claude/settings.local.json
