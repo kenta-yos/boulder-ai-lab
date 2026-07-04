@@ -46,6 +46,12 @@ export function Uploader() {
     };
   }, []);
 
+  // 動画はデフォルトでミュート（ジムでの利用を想定）。
+  // React の muted 属性は初期反映が不安定なので、コードでも確実に設定する。
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = true;
+  }, [videoUrl]);
+
   // コマをタップ → 動画をその秒へ移動して再生
   function seekTo(tSec: number) {
     const v = videoRef.current;
@@ -152,6 +158,7 @@ export function Uploader() {
               src={videoUrl}
               controls
               playsInline
+              muted
               className="mb-3 w-full max-w-sm rounded-lg border border-black/10 dark:border-white/15"
             />
           )}

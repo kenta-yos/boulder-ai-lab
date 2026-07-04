@@ -160,7 +160,12 @@ export async function extractFrames(
       const t = duration * ((i + 0.5) / count);
       await seekTo(video, t);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push({ dataUrl: canvas.toDataURL("image/jpeg", 0.8), tSec: t });
+      // 狙った t ではなく、実際に飛んだ位置(currentTime)を保存する。
+      // これでタップ時のジャンプ先が切り出した瞬間と一致しやすい。
+      frames.push({
+        dataUrl: canvas.toDataURL("image/jpeg", 0.8),
+        tSec: video.currentTime,
+      });
     }
 
     onProgress?.(`完了：${frames.length}枚を切り出しました`);
