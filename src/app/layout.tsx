@@ -29,10 +29,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {/* 全画面で共通の上部メニュー */}
+        {/* 上部は細いアプリ名タイトルだけ */}
+        <header className="border-b border-black/10 dark:border-white/15">
+          <div className="mx-auto max-w-3xl px-4 py-3 font-semibold tracking-tight">
+            BoulderAILab
+          </div>
+        </header>
+        {/* 各画面の中身。下のタブバーに隠れないよう、下に余白(pb-24)を入れる */}
+        <main className="flex-1 pb-24">{children}</main>
+        {/* 画面下に固定のタブバー */}
         <Nav />
-        {/* 各画面の中身がここに入る */}
-        <main className="flex-1">{children}</main>
       </body>
     </html>
   );
