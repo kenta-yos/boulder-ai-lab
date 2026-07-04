@@ -52,15 +52,23 @@ export function Uploader() {
     if (videoRef.current) videoRef.current.muted = true;
   }, [videoUrl]);
 
-  // コマをタップ → 動画をその秒へ移動して「一時停止」で止める。
-  // 勝手に再生すると位置が前へ進んでズレて見えるため、あえて止める。
-  // 続きを見たいときは再生ボタンでそこから再生できる。
+  // コマをタップ → 動画をその秒へ移動し、移動完了の瞬間に一時停止して表示。
+  // iPhoneは一時停止中のシークで画面が描き替わらないことがあるため、
+  // 一瞬だけ再生を促して描画させ、seeked(移動完了)で即停止する。
   function seekTo(tSec: number) {
     const v = videoRef.current;
     if (!v) return;
-    v.pause();
-    v.currentTime = tSec;
     v.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    const onSeeked = () => {
+      v.pause();
+      v.removeEventListener("seeked", onSeeked);
+    };
+    v.addEventListener("seeked", onSeeked);
+
+    v.currentTime = tSec;
+    // iOSで描画を確実にするため一瞬だけ再生（seekedで即止める）
+    v.play().catch(() => {});
   }
 
   async function onSelect(e: React.ChangeEvent<HTMLInputElement>) {
