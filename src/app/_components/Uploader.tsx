@@ -10,90 +10,62 @@ export function Uploader() {
   const [status, setStatus] = useState<Status>("idle");
   const [frames, setFrames] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>("");
-  const [logs, setLogs] = useState<string[]>([]);
-  // プログラム(JavaScript)がこの端末で起動しているかの目印。
-  // 起動していれば true になり「準備OK」が表示される。
-  const [mounted, setMounted] = useState(false);
+  // 処理中に表示する「今なにをしているか」の一言
+  const [progress, setProgress] = useState<string>("");
 
+  // 処理中は背景をスクロールできないようにロックする（誤操作で中断しないため）
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  function addLog(line: string) {
-    setLogs((prev) => [...prev, line]);
-  }
+    if (status === "working") {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [status]);
 
   async function onSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    setLogs(["① ファイル選択を受け取りました"]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     setFrames([]);
     setErrorMsg("");
+    setProgress("準備中…");
     setStatus("working");
 
-    const file = e.target.files?.[0];
-    if (!file) {
-      addLog("⚠ ファイルが空でした（選択キャンセルの可能性）");
-      setStatus("error");
-      setErrorMsg("動画が選ばれませんでした。もう一度お試しください。");
-      return;
-    }
-
-    addLog(
-      `② ファイル情報: 名前=${file.name} / 種類=${file.type || "不明"} / サイズ=${(
-        file.size /
-        (1024 * 1024)
-      ).toFixed(1)}MB`,
-    );
-
     try {
-      const result = await extractFrames(file, 6, addLog);
+      const result = await extractFrames(file, (msg) => setProgress(msg));
       setFrames(result);
       setStatus("done");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "解析に失敗しました";
-      addLog(`✕ エラー: ${msg}`);
-      setErrorMsg(msg);
+      setErrorMsg(err instanceof Error ? err.message : "解析に失敗しました");
       setStatus("error");
+    } finally {
+      // 同じ動画を選び直せるように選択欄をリセット
+      e.target.value = "";
     }
   }
 
   return (
     <div>
-      {/* バージョン印と、プログラム起動の目印 */}
-      <p className="mb-3 text-xs text-zinc-400">
-        診断版 v3 —{" "}
-        {mounted ? (
-          <span className="text-green-600 dark:text-green-400">
-            準備OK（動画を選べます）
-          </span>
-        ) : (
-          <span>読み込み中…（この表示のままなら知らせてください）</span>
-        )}
-      </p>
-
-      {/* 動画選択欄（今回は隠さず、普通の選択ボタンにする） */}
-      <input
-        type="file"
-        accept="video/*"
-        onChange={onSelect}
-        className="block text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-foreground file:px-5 file:py-2.5 file:text-sm file:font-medium file:text-background"
-      />
-
-      {/* 診断ログ */}
-      {logs.length > 0 && (
-        <div className="mt-4 rounded-lg bg-black/5 p-3 text-xs leading-6 text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
-          {logs.map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </div>
-      )}
+      {/* 動画を選ぶボタン（中のinputは隠し、ラベル全体を押せるボタンにする） */}
+      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90">
+        動画を選ぶ
+        <input
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={onSelect}
+        />
+      </label>
 
       {/* エラー表示 */}
       {status === "error" && errorMsg && (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
+        <p className="mt-4 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
       )}
 
-      {/* 切り出したコマのプレビュー（3列グリッド） */}
-      {frames.length > 0 && (
+      {/* 切り出したコマのプレビュー */}
+      {status === "done" && frames.length > 0 && (
         <div className="mt-6">
           <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-300">
             切り出したコマ（{frames.length}枚）
@@ -109,6 +81,21 @@ export function Uploader() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* 処理中の覆い（全画面・操作をブロック） */}
+      {status === "working" && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70 px-8 text-center text-white backdrop-blur-sm"
+          aria-live="polite"
+        >
+          <div className="h-11 w-11 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+          <p className="text-base font-medium">コマを切り出しています…</p>
+          <p className="text-sm text-white/80">{progress}</p>
+          <p className="text-xs text-white/60">
+            そのままお待ちください（画面を触らないでください）
+          </p>
         </div>
       )}
     </div>

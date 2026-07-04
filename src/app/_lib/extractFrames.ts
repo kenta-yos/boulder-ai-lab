@@ -2,8 +2,12 @@
 // すべてブラウザの中だけで動く（動画をサーバーに送らない）。
 // 返り値は、各コマの画像データ（data URL 文字列）の配列。
 
-// 進捗を画面に伝えるためのコールバック型
 type OnProgress = (message: string) => void;
+
+// iPhone等で使える「新しいコマが描かれた合図」の型（標準の型に無い場合の補助）
+type VideoWithFrameCallback = HTMLVideoElement & {
+  requestVideoFrameCallback?: (cb: () => void) => number;
+};
 
 // 指定イベントのどれか（複数可）が起きるまで待つ。error か時間切れなら失敗。
 function waitForAny(
@@ -35,16 +39,61 @@ function waitForAny(
   });
 }
 
-// 動画を指定秒へ移動し、その位置の絵が用意できるまで待つ
+// iPhone対策：一瞬だけ無音再生してから止め、映像デコードを起こす。
+// （これをしないと、指定位置へのコマ移動(seek)が動かないことがある）
+async function primeDecoding(video: HTMLVideoElement): Promise<void> {
+  try {
+    await video.play();
+    video.pause();
+  } catch {
+    // 再生がブロックされても、続行して試す
+  }
+}
+
+// 動画を指定秒へ移動し、その位置の絵が用意できるまで待つ。
+// seeked と requestVideoFrameCallback の両方で完了を検知する（取りこぼし防止）。
 function seekTo(video: HTMLVideoElement, timeSec: number): Promise<void> {
-  const p = waitForAny(video, ["seeked"], 15000, "コマ位置への移動");
-  video.currentTime = timeSec;
-  return p;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      clearTimeout(timer);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onErr);
+    };
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const onSeeked = () => done();
+    const onErr = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error("コマの取得に失敗しました"));
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error("時間切れ：コマ位置への移動が終わりませんでした"));
+    }, 15000);
+
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onErr);
+
+    video.currentTime = timeSec;
+
+    const v = video as VideoWithFrameCallback;
+    if (typeof v.requestVideoFrameCallback === "function") {
+      v.requestVideoFrameCallback(() => done());
+    }
+  });
 }
 
 export async function extractFrames(
   file: File,
-  count = 6,
   onProgress?: OnProgress,
 ): Promise<string[]> {
   const url = URL.createObjectURL(file);
@@ -56,10 +105,10 @@ export async function extractFrames(
   video.setAttribute("muted", "");
   video.setAttribute("playsinline", "");
   video.preload = "auto";
-  // iPhone(Safari)は、動画を画面に置かないとデコードしないことがある。
-  // 見えない位置に一時的にDOMへ追加する。
+  // iPhone(Safari)は、画面内に置かないとデコードしないことがある。
+  // 見えないくらい小さくして画面の隅に一時的に置く。
   video.style.cssText =
-    "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;";
+    "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;";
   document.body.appendChild(video);
 
   try {
@@ -82,6 +131,14 @@ export async function extractFrames(
     if (!video.videoWidth || !video.videoHeight) {
       throw new Error("この動画は映像サイズを取得できませんでした");
     }
+
+    // コマ数を動画の長さに応じて決める（約2秒に1枚、6〜12枚の範囲）。
+    // 多すぎると処理が重く・後でClaudeに送る量も増えるため上限を設ける。
+    const count = Math.min(12, Math.max(6, Math.round(duration / 2)));
+    onProgress?.(`コマ数を${count}枚に設定（長さに合わせて自動調整）`);
+
+    onProgress?.("映像デコードを準備中…");
+    await primeDecoding(video);
 
     const maxWidth = 640;
     const scale = Math.min(1, maxWidth / video.videoWidth);
