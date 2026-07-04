@@ -1,4 +1,5 @@
-import { ScreenShell, ComingSoon } from "./_components/ScreenShell";
+import { ScreenShell } from "./_components/ScreenShell";
+import { Uploader } from "./_components/Uploader";
 
 // ① アップロード画面（アプリの入口）
 export default function UploadPage() {
@@ -6,13 +7,9 @@ export default function UploadPage() {
     <ScreenShell
       badge="①"
       title="アップロード"
-      description="撮影した登りの動画を選び、ジムやグレードを付けて解析にかけます。"
+      description="撮影した登りの動画を選ぶと、ブラウザが自動でコマ（静止画）を切り出します。"
     >
-      <ComingSoon>
-        ここに「動画を選ぶ」「ジム・グレードを入力する」ボタンが入ります。
-        <br />
-        （ステップ4以降で作ります。今は画面の枠だけです。）
-      </ComingSoon>
+      <Uploader />
     </ScreenShell>
   );
 }
