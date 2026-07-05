@@ -105,6 +105,8 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [extractError, setExtractError] = useState("");
   const [progress, setProgress] = useState("");
+  // コマ割り写真は普段は隠しておき、必要なときだけ開く（画面を占有しないため）。
+  const [showFrames, setShowFrames] = useState(false);
   // AI解析まわり
   const [analyzeStatus, setAnalyzeStatus] = useState<Status>("idle");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -260,26 +262,35 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
               className="mb-3 w-full max-w-sm rounded-lg border border-black/10 dark:border-white/15"
             />
           )}
-          <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-300">
-            切り出したコマ（{frames.length}枚）
-            <span className="text-zinc-400">
-              {" "}
-              — タップすると動画がその瞬間に飛びます
-            </span>
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {frames.map((src, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => seekTo(frameTimes[i] ?? 0)}
-                className="overflow-hidden rounded-lg border border-black/10 transition-opacity hover:opacity-80 dark:border-white/15"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt={`コマ ${i + 1}`} className="w-full" />
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowFrames((v) => !v)}
+            className="mb-2 inline-flex items-center gap-1 text-sm text-zinc-500 underline dark:text-zinc-400"
+          >
+            {showFrames
+              ? "切り出したコマを隠す"
+              : `切り出したコマを表示（${frames.length}枚）`}
+          </button>
+          {showFrames && (
+            <>
+              <p className="mb-2 text-xs text-zinc-400">
+                タップすると動画がその瞬間に飛びます
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {frames.map((src, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => seekTo(frameTimes[i] ?? 0)}
+                    className="overflow-hidden rounded-lg border border-black/10 transition-opacity hover:opacity-80 dark:border-white/15"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`コマ ${i + 1}`} className="w-full" />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* 課題の情報（動画を見てから入力・任意） */}
           <div className="mt-6 flex flex-wrap items-end gap-3">
@@ -380,14 +391,17 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
             </Link>
           </div>
 
-          {/* 解析ボタン（統合：Gemini動画読み＋Claude知識ベース） */}
-          <button
-            type="button"
-            onClick={onAnalyze}
-            className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
-          >
-            AIコーチに解析してもらう
-          </button>
+          {/* 解析ボタン（統合：Gemini動画読み＋Claude知識ベース）。
+              解析が済んだら残さない（結果は下に出る）。再解析したいときだけ出す。 */}
+          {analyzeStatus !== "done" && (
+            <button
+              type="button"
+              onClick={onAnalyze}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+            >
+              AIコーチに解析してもらう
+            </button>
+          )}
         </div>
       )}
 
@@ -401,22 +415,50 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
       {/* 解析結果（敗因＋処方）＋チャット */}
       {analyzeStatus === "done" && feedback && (
         <div className="mt-8 space-y-4">
-          <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
-            <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">
-              敗因（なぜ落ちたか）
-            </p>
-            <p className="whitespace-pre-wrap leading-7">
-              <LinkedText text={feedback.summary} onSeek={seekTo} />
-            </p>
-          </div>
-          <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
-            <p className="mb-1 text-xs font-semibold text-green-700 dark:text-green-400">
-              処方（どうすれば成功するか）
-            </p>
-            <p className="whitespace-pre-wrap leading-7">
-              <LinkedText text={feedback.prescription} onSeek={seekTo} />
-            </p>
-          </div>
+          {/* 指摘（主役・分厚い。落ちた瞬間のムーブ中心） */}
+          {feedback.findings && feedback.findings.length > 0 && (
+            <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+              <p className="mb-3 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                指摘（落ちた瞬間のムーブ中心・秒数をタップで動画へ）
+              </p>
+              <ul className="space-y-3">
+                {feedback.findings.map((f, i) => (
+                  <li
+                    key={i}
+                    className="rounded-lg border border-black/10 p-3 dark:border-white/15"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => seekTo(f.tSec)}
+                      className="mb-1.5 inline-flex items-center gap-2"
+                    >
+                      <span className="rounded-full bg-blue-600/10 px-2 py-0.5 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-600/20 dark:text-blue-400">
+                        {formatTime(f.tSec)}
+                      </span>
+                      {f.skill ? (
+                        <span className="text-xs text-zinc-500">{f.skill}</span>
+                      ) : null}
+                    </button>
+                    <p className="whitespace-pre-wrap text-sm leading-7">
+                      {f.comment}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 総括（最後に全体アドバイス） */}
+          {feedback.summary && feedback.summary.trim() && (
+            <div className="rounded-xl border border-black/10 bg-black/[.02] p-4 dark:border-white/15 dark:bg-white/[.04]">
+              <p className="mb-1 text-xs font-semibold text-green-700 dark:text-green-400">
+                総括（次に意識すること）
+              </p>
+              <p className="whitespace-pre-wrap leading-7">
+                <LinkedText text={feedback.summary} onSeek={seekTo} />
+              </p>
+            </div>
+          )}
 
           {feedback.trendNote && feedback.trendNote.trim() && (
             <div className="rounded-xl border border-black/10 bg-black/[.02] p-4 dark:border-white/15 dark:bg-white/[.04]">
@@ -438,36 +480,9 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
                 <LinkedText text={feedback.videoNotes} onSeek={seekTo} />
               </p>
               <p className="mt-2 text-xs text-zinc-400">
-                ※ AIがこう動きを理解した上で、上の敗因・処方を出しています。ずれていたら深掘りチャットで直せます。
+                ※ AIがこう動きを理解した上で、上の指摘・総括を出しています。ずれていたら深掘りチャットで直せます。
               </p>
             </details>
-          )}
-
-          {feedback.findings && feedback.findings.length > 0 && (
-            <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
-              <p className="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                指摘（タップで動画のその瞬間へ）
-              </p>
-              <ul className="space-y-2">
-                {feedback.findings.map((f, i) => (
-                  <li key={i}>
-                    <button
-                      type="button"
-                      onClick={() => seekTo(f.tSec)}
-                      className="w-full rounded-lg border border-black/10 p-2 text-left text-sm transition-colors hover:bg-black/[.03] dark:border-white/15 dark:hover:bg-white/[.06]"
-                    >
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
-                        {formatTime(f.tSec)}
-                      </span>
-                      {f.skill ? (
-                        <span className="text-zinc-500"> ・{f.skill}</span>
-                      ) : null}
-                      <span className="block leading-6">{f.comment}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
 
           {feedback.scores && feedback.scores.length > 0 && (

@@ -7,10 +7,10 @@ export default function AnalysisPage() {
     <ScreenShell
       badge="②"
       title="解析結果"
-      description="過去の解析の詳細（敗因・処方）をここで見ます。"
+      description="過去の解析の詳細（指摘・総括）をここで見ます。"
     >
       <ComingSoon>
-        「記録」タブで見たい解析をタップすると、ここに敗因・処方が表示されます。
+        「記録」タブで見たい解析をタップすると、ここに指摘・総括が表示されます。
         <br />
         <Link href="/records" className="underline">
           記録を開く

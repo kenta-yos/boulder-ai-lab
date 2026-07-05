@@ -53,18 +53,22 @@ export default async function AnalysisDetailPage({
             <p className="whitespace-pre-wrap leading-7">{a.note}</p>
           </div>
         )}
-        <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
-          <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">
-            敗因（なぜ落ちたか）
-          </p>
-          <p className="whitespace-pre-wrap leading-7">{a.summary}</p>
-        </div>
-        <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
-          <p className="mb-1 text-xs font-semibold text-green-700 dark:text-green-400">
-            処方（どうすれば成功するか）
-          </p>
-          <p className="whitespace-pre-wrap leading-7">{a.prescription}</p>
-        </div>
+        {a.prescription && a.prescription.trim() && (
+          <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+            <p className="mb-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              指摘（落ちた瞬間のムーブ中心）
+            </p>
+            <p className="whitespace-pre-wrap leading-7">{a.prescription}</p>
+          </div>
+        )}
+        {a.summary && a.summary.trim() && (
+          <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+            <p className="mb-1 text-xs font-semibold text-green-700 dark:text-green-400">
+              総括（次に意識すること）
+            </p>
+            <p className="whitespace-pre-wrap leading-7">{a.summary}</p>
+          </div>
+        )}
 
         {Array.isArray(a.scores) && a.scores.length > 0 && (
           <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">

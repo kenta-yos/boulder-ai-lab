@@ -77,12 +77,24 @@ export async function POST(request: Request) {
       trend,
     });
 
+    // 履歴用に、秒数つきの指摘をテキスト化して保存する（DBスキーマは据え置き）。
+    // summary＝総括、prescription＝指摘のテキスト、として既存の2列を再利用する。
+    const findingsText = (feedback.findings ?? [])
+      .map((f) => {
+        const m = Math.floor(f.tSec / 60);
+        const s = Math.floor(f.tSec % 60)
+          .toString()
+          .padStart(2, "0");
+        return `${m}:${s}${f.skill ? `・${f.skill}` : ""}\n${f.comment}`;
+      })
+      .join("\n\n");
+
     await prisma.analysis.create({
       data: {
         gym: typeof gym === "string" && gym ? gym : null,
         grade: gradeStr ?? null,
         summary: feedback.summary,
-        prescription: feedback.prescription,
+        prescription: findingsText,
         thumbnail:
           typeof thumbnail === "string" ? thumbnail : (frames[0] ?? null),
         scores: feedback.scores ?? undefined,
