@@ -81,7 +81,14 @@ export default async function RecordsPage() {
                         {new Date(a.createdAt).toLocaleString("ja-JP")}
                         {a.grade ? ` ・ ${a.grade}` : ""}
                         {a.gym ? ` ・ ${a.gym}` : ""}
+                        {a.holdColor ? ` ・ ${a.holdColor}` : ""}
+                        {a.wallAngle ? ` ・ ${a.wallAngle}` : ""}
                       </p>
+                      {a.note ? (
+                        <p className="mt-0.5 line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          メモ: {a.note}
+                        </p>
+                      ) : null}
                       <p className="mt-1 line-clamp-3 text-sm leading-6">
                         {a.summary}
                       </p>

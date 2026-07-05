@@ -28,7 +28,9 @@ export default async function AnalysisDetailPage({
       description={
         new Date(a.createdAt).toLocaleString("ja-JP") +
         (a.grade ? ` ・ ${a.grade}` : "") +
-        (a.gym ? ` ・ ${a.gym}` : "")
+        (a.gym ? ` ・ ${a.gym}` : "") +
+        (a.holdColor ? ` ・ ${a.holdColor}` : "") +
+        (a.wallAngle ? ` ・ ${a.wallAngle}` : "")
       }
     >
       {a.thumbnail && (
@@ -43,6 +45,14 @@ export default async function AnalysisDetailPage({
       )}
 
       <div className="space-y-4">
+        {a.note && (
+          <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+            <p className="mb-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              自分のメモ（落ちた場所・感触）
+            </p>
+            <p className="whitespace-pre-wrap leading-7">{a.note}</p>
+          </div>
+        )}
         <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
           <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">
             敗因（なぜ落ちたか）

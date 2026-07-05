@@ -20,6 +20,9 @@ model Analysis {
   prescription String // 処方
   thumbnail    String? // 先頭コマのサムネ（data URL）
   scores       Json? // 技術8軸のスコア（[{skill,score,evidence}]）
+  holdColor    String? // 課題の色（入力時のスナップショット）
+  wallAngle    String? // 壁の傾斜（入力時のスナップショット）
+  note         String? // 登り手本人のメモ（落ちた場所・感触）
 }
 
 // マスタ：ジム

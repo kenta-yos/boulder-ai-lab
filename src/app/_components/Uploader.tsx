@@ -160,7 +160,7 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
     setFeedback(null);
     setAnalyzeError("");
     setAnalyzeStatus("idle");
-    setNote(""); // メモはそのトライ固有なので、動画を選び直したら消す
+    // メモ(感想)は消さない：動画より先に書くことが多いため。別課題に移るときは手動で消す/書き換える。
 
     // 動画プレーヤー用の一時URLを作る（古いものは解放）
     if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
@@ -222,98 +222,7 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
 
   return (
     <div>
-      {/* ジム・グレード（マスタから選択・任意） */}
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <label className="block">
-          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-            ジム（任意）
-          </span>
-          <select
-            value={gymId}
-            onChange={(e) => {
-              setGymId(e.target.value);
-              setGradeLabel("");
-            }}
-            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
-          >
-            <option value="">未選択</option>
-            {gyms.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-            グレード（任意）
-          </span>
-          <select
-            value={gradeLabel}
-            onChange={(e) => setGradeLabel(e.target.value)}
-            disabled={!selectedGym}
-            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base disabled:opacity-50 dark:border-white/20"
-          >
-            <option value="">未選択</option>
-            {selectedGym?.grades.map((gr) => (
-              <option key={gr.id} value={gr.label}>
-                {gr.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-            課題の色（任意）
-          </span>
-          <select
-            value={holdColor}
-            onChange={(e) => setHoldColor(e.target.value)}
-            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
-          >
-            <option value="">未選択</option>
-            {HOLD_COLORS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-            壁の傾斜（任意）
-          </span>
-          <select
-            value={wallAngle}
-            onChange={(e) => setWallAngle(e.target.value)}
-            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
-          >
-            <option value="">未選択</option>
-            {WALL_ANGLES.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {/* 落ちた場所・感触（任意・AIが核心に絞る手がかり） */}
-      <div className="mb-4">
-        <label className="block">
-          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-            落ちた場所・感触（任意）
-          </span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            placeholder="例：ラストのガバ取りで体が左に振られて落ちた／核心は3手目の遠い右手"
-            className="w-full resize-none rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base leading-6 dark:border-white/20"
-          />
-        </label>
-      </div>
-
-      {/* 動画を選ぶボタン */}
+      {/* まず動画を選ぶ */}
       <div>
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90">
           動画を選ぶ
@@ -324,14 +233,6 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
             onChange={onSelect}
           />
         </label>
-      </div>
-      <div className="mt-3">
-        <Link
-          href="/settings"
-          className="text-xs text-zinc-500 underline dark:text-zinc-400"
-        >
-          ジム・グレードを登録/編集
-        </Link>
       </div>
 
       {/* コマ抽出のエラー */}
@@ -375,6 +276,105 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
                 <img src={src} alt={`コマ ${i + 1}`} className="w-full" />
               </button>
             ))}
+          </div>
+
+          {/* 課題の情報（動画を見てから入力・任意） */}
+          <div className="mt-6 flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+                ジム（任意）
+              </span>
+              <select
+                value={gymId}
+                onChange={(e) => {
+                  setGymId(e.target.value);
+                  setGradeLabel("");
+                }}
+                className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
+              >
+                <option value="">未選択</option>
+                {gyms.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+                グレード（任意）
+              </span>
+              <select
+                value={gradeLabel}
+                onChange={(e) => setGradeLabel(e.target.value)}
+                disabled={!selectedGym}
+                className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base disabled:opacity-50 dark:border-white/20"
+              >
+                <option value="">未選択</option>
+                {selectedGym?.grades.map((gr) => (
+                  <option key={gr.id} value={gr.label}>
+                    {gr.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+                課題の色（任意）
+              </span>
+              <select
+                value={holdColor}
+                onChange={(e) => setHoldColor(e.target.value)}
+                className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
+              >
+                <option value="">未選択</option>
+                {HOLD_COLORS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+                壁の傾斜（任意）
+              </span>
+              <select
+                value={wallAngle}
+                onChange={(e) => setWallAngle(e.target.value)}
+                className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
+              >
+                <option value="">未選択</option>
+                {WALL_ANGLES.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {/* 落ちた場所・感触（任意・AIが核心に絞る手がかり） */}
+          <div className="mt-4">
+            <label className="block">
+              <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+                落ちた場所・感触（任意）
+              </span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                placeholder="例：ラストのガバ取りで体が左に振られて落ちた／核心は3手目の遠い右手"
+                className="w-full resize-none rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base leading-6 dark:border-white/20"
+              />
+            </label>
+          </div>
+          <div className="mt-2">
+            <Link
+              href="/settings"
+              className="text-xs text-zinc-500 underline dark:text-zinc-400"
+            >
+              ジム・グレードを登録/編集
+            </Link>
           </div>
 
           {/* 解析ボタン（統合：Gemini動画読み＋Claude知識ベース） */}

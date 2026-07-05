@@ -58,6 +58,9 @@ export async function POST(request: Request) {
         thumbnail:
           typeof thumbnail === "string" ? thumbnail : (frames[0] ?? null),
         scores: feedback.scores ?? undefined,
+        holdColor: holdColorStr ?? null,
+        wallAngle: wallAngleStr ?? null,
+        note: noteStr ?? null,
       },
     });
 
