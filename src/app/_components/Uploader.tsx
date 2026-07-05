@@ -212,6 +212,7 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
         scores: data.scores,
         findings: data.findings,
         videoNotes: data.videoNotes,
+        trendNote: data.trendNote,
       });
       setAnalyzeStatus("done");
     } catch (err) {
@@ -414,6 +415,17 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
               <LinkedText text={feedback.prescription} onSeek={seekTo} />
             </p>
           </div>
+
+          {feedback.trendNote && feedback.trendNote.trim() && (
+            <div className="rounded-xl border border-black/10 bg-black/[.02] p-4 dark:border-white/15 dark:bg-white/[.04]">
+              <p className="mb-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                傾向からの一言（これまでの記録より）
+              </p>
+              <p className="whitespace-pre-wrap leading-7">
+                {feedback.trendNote}
+              </p>
+            </div>
+          )}
 
           {feedback.videoNotes && (
             <details className="rounded-xl border border-black/10 p-4 dark:border-white/15">

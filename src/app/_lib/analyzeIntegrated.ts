@@ -79,12 +79,16 @@ const COACH_SYSTEM = `${HANDBOOK}
 - 静止画（時系列のコマ。あなた自身の目で確認する材料）
 - Geminiが動画を読んだ客観メモ（秒数つき。動きの流れ・タイミングの補完）
 - グレード（あれば）
+- 登り手のこれまでの傾向（あれば。弱い軸・改善/低下。あくまで背景情報）
 
 出力（JSON）：
 - summary（敗因）：根本原因を重要な順に。複数あれば複数挙げる（目安1〜3点、最重要を先頭に）。各点は改行で分け、上の知識ベースの技術名・合図で具体的に。休憩中に数秒で読める簡潔さを保つ。
 - prescription（処方）：各敗因に対応する具体行動を、対応する順に（体のどこを・どの順で・どう動かすか）。最優先の1手が分かるよう先頭に置き、各手は改行で分ける。
 - scores（技術8軸）：8軸すべてに0〜100（このグレードの理想を100とする相対評価）と一言の根拠(evidence)。読み取れない軸は50前後・低信頼として控えめに。
 - findings（秒数つき指摘）：崩れた/改善したい瞬間を、動きメモの秒数を使って tSec（秒・数値）と comment（短い指摘）で2〜5個。関連軸があれば skill も。
+- trendNote（傾向からの一言）：傾向情報が与えられた時だけ書く。1〜2文。該当が無ければ空文字。
+
+傾向の使い方（重要）：今回の映像診断が主役。傾向は次の3つの時だけ使う。(1)今回も同じ弱点が映像に出ていれば「〜が続いている」と優先順位の根拠にする。(2)以前の弱点が今回は改善していれば前進として認める。(3)同じ弱点が続くなら、前回と同じ助言の繰り返しでなく次の段階のドリル/意識に進める。今回の映像に出ていない過去の弱点を無理に持ち出さない。傾向が無い/該当しなければ trendNote は空文字にする。
 
 ルール：一般論で終わらせない（必ず技術名・合図で語る）。読み取れない点は低信頼と明示し断定しない。左右は向きを見極め体基準で、自信が無ければ上下(高さ)・壁側/外側で（色では述べない）。ホールドの色で指し示さないこと（壁には別課題のホールドが多色で混在し当てにならない。1課題は基本同じ色なので複数の色に言及して登りを説明しない）。強調記号(**,#)は使わずプレーンな日本語で。`;
 
@@ -95,6 +99,7 @@ async function coach(
   holdColor?: string,
   wallAngle?: string,
   userNote?: string,
+  trend?: string,
 ): Promise<Feedback> {
   const client = new Anthropic();
 
@@ -120,6 +125,9 @@ async function coach(
       : "") +
     (userNote
       ? `\n登り手のメモ: ${userNote}（本人が感じた落ちた場所・難所。ここを最優先で診断する。ただし原因の解釈は自分で映像から判断し、メモと食い違えば映像を優先してその旨断る）`
+      : "") +
+    (trend
+      ? `\n登り手のこれまでの傾向: ${trend}（背景情報。今回の映像診断を最優先に。今回も出た弱点の優先付け／改善の承認／次の一手にだけ使い、今回出ていない弱点は持ち出さない。該当が無ければ trendNote は空文字）`
       : "") +
     "\n\n知識ベースに基づき、敗因・処方・8軸スコア・秒数つき指摘を出してください。";
 
@@ -174,6 +182,7 @@ async function coach(
                 additionalProperties: false,
               },
             },
+            trendNote: { type: "string" },
           },
           required: ["summary", "prescription", "scores", "findings"],
           additionalProperties: false,
@@ -192,6 +201,7 @@ async function coach(
     prescription: parsed.prescription ?? "",
     scores: parsed.scores ?? [],
     findings: parsed.findings ?? [],
+    trendNote: parsed.trendNote ?? "",
   };
 }
 
@@ -203,6 +213,7 @@ export async function analyzeIntegrated(input: {
   holdColor?: string;
   wallAngle?: string;
   note?: string;
+  trend?: string;
 }): Promise<Feedback> {
   const notes = await readVideoNotes(
     input.video,
@@ -218,6 +229,7 @@ export async function analyzeIntegrated(input: {
     input.holdColor,
     input.wallAngle,
     input.note,
+    input.trend,
   );
   // AIがどう動きを読んだか（観察メモ）を結果に添える。理解の確認・フィードバック用。
   return { ...feedback, videoNotes: notes };

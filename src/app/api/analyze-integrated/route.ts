@@ -1,6 +1,7 @@
 // 統合解析の窓口（サーバー側）。動画＋静止画を受け取る。
 import { NextResponse } from "next/server";
 import { analyzeIntegrated } from "@/app/_lib/analyzeIntegrated";
+import { buildTrendSummary } from "@/app/_lib/tendency";
 import { prisma } from "@/app/_lib/db";
 
 export const runtime = "nodejs";
@@ -40,6 +41,14 @@ export async function POST(request: Request) {
       typeof wallAngle === "string" && wallAngle ? wallAngle : undefined;
     const noteStr = typeof note === "string" && note ? note : undefined;
 
+    // これまでの解析スコアから傾向を集計してAIに渡す（今回の映像診断が主役・傾向は背景）
+    const pastAnalyses = await prisma.analysis.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: { scores: true },
+    });
+    const trend = buildTrendSummary(pastAnalyses);
+
     const feedback = await analyzeIntegrated({
       video,
       frames,
@@ -47,6 +56,7 @@ export async function POST(request: Request) {
       holdColor: holdColorStr,
       wallAngle: wallAngleStr,
       note: noteStr,
+      trend,
     });
 
     await prisma.analysis.create({

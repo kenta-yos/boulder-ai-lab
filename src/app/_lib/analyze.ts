@@ -43,6 +43,7 @@ export type Feedback = {
   scores?: SkillScore[]; // 技術8軸のスコア
   findings?: Finding[]; // 秒数つきの指摘
   videoNotes?: string; // AIが読み取った動きの客観メモ（秒数つき観察。理解の確認用）
+  trendNote?: string; // 傾向からの一言（過去の傾向をふまえた再発/改善/次の一手。無ければ空）
 };
 
 // 差し替え可能な解析関数の型
