@@ -48,3 +48,6 @@ next-env.d.ts
 
 
 /src/generated/prisma
+
+# 参考書籍の写真（著作物・公開リポジトリに含めない）
+reference-book/
