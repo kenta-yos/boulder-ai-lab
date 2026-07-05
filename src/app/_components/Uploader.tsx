@@ -1,7 +1,7 @@
 "use client";
 
 // 動画を選び→ブラウザでコマ抽出→動画プレーヤー＋コマタップで該当秒へジャンプ→AI解析→敗因＋処方→チャット。
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { extractFrames } from "../_lib/extractFrames";
 import type { Feedback } from "../_lib/analyze";
@@ -16,6 +16,25 @@ type GymOption = {
   grades: { id: string; label: string }[];
 };
 
+// 課題の色（同じ色のホールドで1課題。AIに「対象はこの色だけ」と伝えるため）
+const HOLD_COLORS = [
+  "白",
+  "黄",
+  "緑",
+  "青",
+  "赤",
+  "ピンク",
+  "オレンジ",
+  "紫",
+  "黒",
+  "灰",
+  "茶",
+  "水色",
+];
+
+// 壁の傾斜（傾斜でアドバイスが大きく変わるためAIに伝える）
+const WALL_ANGLES = ["スラブ", "垂壁", "緩傾斜", "強傾斜", "ルーフ"];
+
 // 秒 → m:ss 表記
 function formatTime(sec: number): string {
   const s = Math.max(0, Math.round(sec));
@@ -24,10 +43,58 @@ function formatTime(sec: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+// 「0:25」「25秒」「1分25秒」「1分」などの表記 → 秒数へ変換
+function timeLabelToSec(label: string): number {
+  if (label.includes(":")) {
+    const [m, s] = label.split(":");
+    return Number(m) * 60 + Number(s);
+  }
+  const min = label.match(/(\d+)分/);
+  const sec = label.match(/(\d+)秒/);
+  return (min ? Number(min[1]) : 0) * 60 + (sec ? Number(sec[1]) : 0);
+}
+
+// 文章中の時刻表記（0:25 / 25秒 / 1分25秒 / 1分）を拾って、
+// タップで動画のその秒へ飛ぶリンクに変える。それ以外はそのままの文字。
+function LinkedText({
+  text,
+  onSeek,
+}: {
+  text: string;
+  onSeek: (sec: number) => void;
+}) {
+  const re = /(\d+:\d{2}|\d+分\d+秒|\d+分|\d+秒)/g;
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    const label = m[0];
+    const sec = timeLabelToSec(label);
+    nodes.push(
+      <button
+        key={key++}
+        type="button"
+        onClick={() => onSeek(sec)}
+        className="font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
+      >
+        {label}
+      </button>,
+    );
+    last = m.index + label.length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return <>{nodes}</>;
+}
+
 export function Uploader({ gyms }: { gyms: GymOption[] }) {
   // ジム・グレード（マスタから選択）
   const [gymId, setGymId] = useState("");
   const [gradeLabel, setGradeLabel] = useState("");
+  const [holdColor, setHoldColor] = useState("");
+  const [wallAngle, setWallAngle] = useState("");
+  const [note, setNote] = useState("");
   const selectedGym = gyms.find((g) => g.id === gymId);
 
   // コマ抽出まわり
@@ -93,6 +160,7 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
     setFeedback(null);
     setAnalyzeError("");
     setAnalyzeStatus("idle");
+    setNote(""); // メモはそのトライ固有なので、動画を選び直したら消す
 
     // 動画プレーヤー用の一時URLを作る（古いものは解放）
     if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
@@ -128,6 +196,9 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
       form.append("frames", JSON.stringify(frames));
       if (selectedGym) form.append("gym", selectedGym.name);
       if (gradeLabel) form.append("grade", gradeLabel);
+      if (holdColor) form.append("holdColor", holdColor);
+      if (wallAngle) form.append("wallAngle", wallAngle);
+      if (note.trim()) form.append("note", note.trim());
       if (frames[0]) form.append("thumbnail", frames[0]);
       const res = await fetch("/api/analyze-integrated", {
         method: "POST",
@@ -140,6 +211,7 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
         prescription: data.prescription,
         scores: data.scores,
         findings: data.findings,
+        videoNotes: data.videoNotes,
       });
       setAnalyzeStatus("done");
     } catch (err) {
@@ -190,7 +262,57 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
             ))}
           </select>
         </label>
+        <label className="block">
+          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+            課題の色（任意）
+          </span>
+          <select
+            value={holdColor}
+            onChange={(e) => setHoldColor(e.target.value)}
+            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
+          >
+            <option value="">未選択</option>
+            {HOLD_COLORS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+            壁の傾斜（任意）
+          </span>
+          <select
+            value={wallAngle}
+            onChange={(e) => setWallAngle(e.target.value)}
+            className="rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base dark:border-white/20"
+          >
+            <option value="">未選択</option>
+            {WALL_ANGLES.map((w) => (
+              <option key={w} value={w}>
+                {w}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+      {/* 落ちた場所・感触（任意・AIが核心に絞る手がかり） */}
+      <div className="mb-4">
+        <label className="block">
+          <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
+            落ちた場所・感触（任意）
+          </span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="例：ラストのガバ取りで体が左に振られて落ちた／核心は3手目の遠い右手"
+            className="w-full resize-none rounded-lg border border-black/15 bg-transparent px-3 py-2 text-base leading-6 dark:border-white/20"
+          />
+        </label>
+      </div>
+
       {/* 動画を選ぶボタン */}
       <div>
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90">
@@ -280,16 +402,32 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
             <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">
               敗因（なぜ落ちたか）
             </p>
-            <p className="whitespace-pre-wrap leading-7">{feedback.summary}</p>
+            <p className="whitespace-pre-wrap leading-7">
+              <LinkedText text={feedback.summary} onSeek={seekTo} />
+            </p>
           </div>
           <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
             <p className="mb-1 text-xs font-semibold text-green-700 dark:text-green-400">
               処方（どうすれば成功するか）
             </p>
             <p className="whitespace-pre-wrap leading-7">
-              {feedback.prescription}
+              <LinkedText text={feedback.prescription} onSeek={seekTo} />
             </p>
           </div>
+
+          {feedback.videoNotes && (
+            <details className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+              <summary className="cursor-pointer text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                AIが読み取った動き（観察メモ・タップで動画へ）
+              </summary>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-200">
+                <LinkedText text={feedback.videoNotes} onSeek={seekTo} />
+              </p>
+              <p className="mt-2 text-xs text-zinc-400">
+                ※ AIがこう動きを理解した上で、上の敗因・処方を出しています。ずれていたら深掘りチャットで直せます。
+              </p>
+            </details>
+          )}
 
           {feedback.findings && feedback.findings.length > 0 && (
             <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">

@@ -12,7 +12,13 @@ const CLAUDE_MODEL = "claude-opus-4-8";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 // ---- 1) Gemini：動画を読んで客観的な「動きメモ（秒数つき）」を作る ----
-async function readVideoNotes(video: Blob, grade?: string): Promise<string> {
+async function readVideoNotes(
+  video: Blob,
+  grade?: string,
+  holdColor?: string,
+  wallAngle?: string,
+  userNote?: string,
+): Promise<string> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   const uploaded = await ai.files.upload({
@@ -37,7 +43,17 @@ async function readVideoNotes(video: Blob, grade?: string): Promise<string> {
     "- 体の使い方を淡々と：腕（曲げ/伸ばし）、脚の押し、腰と壁の距離、重心が足に乗っているか、足の置き、動きの速さ・ためらい・タイミング。\n" +
     "- どこで崩れた/止まった/落ちたかを秒数つきで。\n" +
     "- ここでは講評・助言は書かない（観察のみ）。\n" +
-    "- 左右は取り違えやすいので、自信が無ければホールドの色・位置・上下で述べる。" +
+    "- 左右は取り違えやすいので、自信が無ければ体基準の左右・上下(高さ)・壁側/外側で述べる（色では述べない）。\n" +
+    "- ホールドの色で指し示さないこと。壁には別課題のホールドが多色で混在し当てにならない。1課題は基本同じ色なので、複数の色に言及して登りを説明しない。" +
+    (holdColor
+      ? `\n- この課題の対象ホールドの色は「${holdColor}」。登り手が使うのはこの色のホールドだけ。他の色のホールドは別課題なので言及しない。`
+      : "") +
+    (wallAngle
+      ? `\n- この壁の傾斜は「${wallAngle}」。それを踏まえて動きを観察する。`
+      : "") +
+    (userNote
+      ? `\n- 登り手本人のメモ（落ちた場所・感触など）：「${userNote}」。この局面を特に丁寧に観察する。ただし鵜呑みにせず、実際の映像で確かめる。`
+      : "") +
     (grade ? `\n- グレード: ${grade}` : "");
 
   const res = await ai.models.generateContent({
@@ -65,17 +81,20 @@ const COACH_SYSTEM = `${HANDBOOK}
 - グレード（あれば）
 
 出力（JSON）：
-- summary（敗因）：最も効く根本原因を1〜2点、上の知識ベースの技術名・合図で具体的に。
-- prescription（処方）：その原因に直結する具体行動（体のどこを・どの順で・どう動かすか）。
+- summary（敗因）：根本原因を重要な順に。複数あれば複数挙げる（目安1〜3点、最重要を先頭に）。各点は改行で分け、上の知識ベースの技術名・合図で具体的に。休憩中に数秒で読める簡潔さを保つ。
+- prescription（処方）：各敗因に対応する具体行動を、対応する順に（体のどこを・どの順で・どう動かすか）。最優先の1手が分かるよう先頭に置き、各手は改行で分ける。
 - scores（技術8軸）：8軸すべてに0〜100（このグレードの理想を100とする相対評価）と一言の根拠(evidence)。読み取れない軸は50前後・低信頼として控えめに。
 - findings（秒数つき指摘）：崩れた/改善したい瞬間を、動きメモの秒数を使って tSec（秒・数値）と comment（短い指摘）で2〜5個。関連軸があれば skill も。
 
-ルール：一般論で終わらせない（必ず技術名・合図で語る）。読み取れない点は低信頼と明示し断定しない。左右は向きを見極め体基準で、自信が無ければホールドの色・位置・上下で。強調記号(**,#)は使わずプレーンな日本語で。`;
+ルール：一般論で終わらせない（必ず技術名・合図で語る）。読み取れない点は低信頼と明示し断定しない。左右は向きを見極め体基準で、自信が無ければ上下(高さ)・壁側/外側で（色では述べない）。ホールドの色で指し示さないこと（壁には別課題のホールドが多色で混在し当てにならない。1課題は基本同じ色なので複数の色に言及して登りを説明しない）。強調記号(**,#)は使わずプレーンな日本語で。`;
 
 async function coach(
   frames: string[],
   notes: string,
   grade?: string,
+  holdColor?: string,
+  wallAngle?: string,
+  userNote?: string,
 ): Promise<Feedback> {
   const client = new Anthropic();
 
@@ -93,6 +112,15 @@ async function coach(
     "【Geminiの動画メモ（秒数つき・観察）】\n" +
     (notes || "（メモなし）") +
     (grade ? `\n\nグレード: ${grade}` : "") +
+    (holdColor
+      ? `\n課題の色: ${holdColor}（対象はこの色のホールドのみ。他の色のホールドは別課題なので言及しない）`
+      : "") +
+    (wallAngle
+      ? `\n壁の傾斜: ${wallAngle}（この傾斜に合った技術を優先して診断する。例：強傾斜・ルーフはボディテンションと腰寄せ、スラブ・垂壁はフットワークと重心）`
+      : "") +
+    (userNote
+      ? `\n登り手のメモ: ${userNote}（本人が感じた落ちた場所・難所。ここを最優先で診断する。ただし原因の解釈は自分で映像から判断し、メモと食い違えば映像を優先してその旨断る）`
+      : "") +
     "\n\n知識ベースに基づき、敗因・処方・8軸スコア・秒数つき指摘を出してください。";
 
   const response = await client.messages.create({
@@ -172,7 +200,25 @@ export async function analyzeIntegrated(input: {
   video: Blob;
   frames: string[];
   grade?: string;
+  holdColor?: string;
+  wallAngle?: string;
+  note?: string;
 }): Promise<Feedback> {
-  const notes = await readVideoNotes(input.video, input.grade);
-  return coach(input.frames, notes, input.grade);
+  const notes = await readVideoNotes(
+    input.video,
+    input.grade,
+    input.holdColor,
+    input.wallAngle,
+    input.note,
+  );
+  const feedback = await coach(
+    input.frames,
+    notes,
+    input.grade,
+    input.holdColor,
+    input.wallAngle,
+    input.note,
+  );
+  // AIがどう動きを読んだか（観察メモ）を結果に添える。理解の確認・フィードバック用。
+  return { ...feedback, videoNotes: notes };
 }

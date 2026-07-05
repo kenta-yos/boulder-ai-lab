@@ -42,6 +42,7 @@ export type Feedback = {
   prescription: string; // 処方：どうすれば成功するか
   scores?: SkillScore[]; // 技術8軸のスコア
   findings?: Finding[]; // 秒数つきの指摘
+  videoNotes?: string; // AIが読み取った動きの客観メモ（秒数つき観察。理解の確認用）
 };
 
 // 差し替え可能な解析関数の型

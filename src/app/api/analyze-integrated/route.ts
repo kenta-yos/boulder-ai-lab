@@ -13,6 +13,9 @@ export async function POST(request: Request) {
     const framesRaw = form.get("frames");
     const grade = form.get("grade");
     const gym = form.get("gym");
+    const holdColor = form.get("holdColor");
+    const wallAngle = form.get("wallAngle");
+    const note = form.get("note");
     const thumbnail = form.get("thumbnail");
 
     if (!(video instanceof Blob)) {
@@ -31,8 +34,20 @@ export async function POST(request: Request) {
     }
 
     const gradeStr = typeof grade === "string" && grade ? grade : undefined;
+    const holdColorStr =
+      typeof holdColor === "string" && holdColor ? holdColor : undefined;
+    const wallAngleStr =
+      typeof wallAngle === "string" && wallAngle ? wallAngle : undefined;
+    const noteStr = typeof note === "string" && note ? note : undefined;
 
-    const feedback = await analyzeIntegrated({ video, frames, grade: gradeStr });
+    const feedback = await analyzeIntegrated({
+      video,
+      frames,
+      grade: gradeStr,
+      holdColor: holdColorStr,
+      wallAngle: wallAngleStr,
+      note: noteStr,
+    });
 
     await prisma.analysis.create({
       data: {
