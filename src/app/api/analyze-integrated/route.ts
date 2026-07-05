@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const video = form.get("video");
     const framesRaw = form.get("frames");
+    const frameTimesRaw = form.get("frameTimes");
     const grade = form.get("grade");
     const gym = form.get("gym");
     const holdColor = form.get("holdColor");
@@ -33,6 +34,22 @@ export async function POST(request: Request) {
     if (frames.length === 0) {
       return NextResponse.json({ error: "コマ画像がありません" }, { status: 400 });
     }
+    // 各静止画の実測時刻（秒）。コマ画像と同数のときだけ使う。
+    let frameTimes: number[] = [];
+    if (typeof frameTimesRaw === "string") {
+      try {
+        const parsed = JSON.parse(frameTimesRaw);
+        if (
+          Array.isArray(parsed) &&
+          parsed.length === frames.length &&
+          parsed.every((n) => typeof n === "number" && isFinite(n))
+        ) {
+          frameTimes = parsed;
+        }
+      } catch {
+        frameTimes = [];
+      }
+    }
 
     const gradeStr = typeof grade === "string" && grade ? grade : undefined;
     const holdColorStr =
@@ -52,6 +69,7 @@ export async function POST(request: Request) {
     const feedback = await analyzeIntegrated({
       video,
       frames,
+      frameTimes,
       grade: gradeStr,
       holdColor: holdColorStr,
       wallAngle: wallAngleStr,

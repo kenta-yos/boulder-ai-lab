@@ -194,6 +194,8 @@ export function Uploader({ gyms }: { gyms: GymOption[] }) {
       const form = new FormData();
       form.append("video", videoFile);
       form.append("frames", JSON.stringify(frames));
+      // 各静止画の実測の時刻（秒）。Claudeが指摘の秒数を正確に打つのに使う。
+      form.append("frameTimes", JSON.stringify(frameTimes));
       if (selectedGym) form.append("gym", selectedGym.name);
       if (gradeLabel) form.append("grade", gradeLabel);
       if (holdColor) form.append("holdColor", holdColor);

@@ -119,7 +119,7 @@ const COACH_SYSTEM = `${HANDBOOK}
 - summary（敗因）：根本原因を重要な順に。複数あれば複数挙げる（目安1〜3点、最重要を先頭に）。各点は改行で分け、上の知識ベースの技術名・合図で具体的に。休憩中に数秒で読める簡潔さを保つ。
 - prescription（処方）：各敗因に対応する具体行動を、対応する順に（体のどこを・どの順で・どう動かすか）。最優先の1手が分かるよう先頭に置き、各手は改行で分ける。
 - scores（技術8軸）：8軸すべてに0〜100（このグレードの理想を100とする相対評価）と一言の根拠(evidence)。読み取れない軸は50前後・低信頼として控えめに。
-- findings（秒数つき指摘）：崩れた/改善したい瞬間を、動きメモの秒数を使って tSec（秒・数値）と comment（短い指摘）で2〜5個。関連軸があれば skill も。
+- findings（秒数つき指摘）：崩れた/改善したい瞬間を tSec（秒・数値）と comment（短い指摘）で2〜5個。関連軸があれば skill も。tSec の付け方：静止画に映っている範囲（動画末尾＝落下の核心）は、ユーザーメッセージで渡す『静止画の正確な時刻』から、その瞬間が映っているコマの秒数を使う。静止画に映らない序盤〜中盤だけ動きメモの秒数を使う（動きメモの秒数はズレることがあるため、静止画で確認できる所は静止画の時刻を優先）。
 - trendNote（傾向からの一言）：傾向情報が与えられた時だけ書く。1〜2文。該当が無ければ空文字。
 
 傾向の使い方（重要）：今回の映像診断が主役。傾向は次の3つの時だけ使う。(1)今回も同じ弱点が映像に出ていれば「〜が続いている」と優先順位の根拠にする。(2)以前の弱点が今回は改善していれば前進として認める。(3)同じ弱点が続くなら、前回と同じ助言の繰り返しでなく次の段階のドリル/意識に進める。今回の映像に出ていない過去の弱点を無理に持ち出さない。傾向が無い/該当しなければ trendNote は空文字にする。
@@ -136,6 +136,7 @@ async function coach(
   wallAngle?: string,
   userNote?: string,
   trend?: string,
+  frameTimes?: number[],
 ): Promise<Feedback> {
   const client = new Anthropic();
 
@@ -148,10 +149,24 @@ async function coach(
     },
   }));
 
+  // 静止画は実測の正確な時刻を持つ（動画末尾＝落下の核心）。
+  // findings の秒数は、この範囲では動画メモのズレやすい秒数より静止画の時刻を優先させる。
+  const hasTimes =
+    Array.isArray(frameTimes) && frameTimes.length === frames.length && frames.length > 0;
+  const frameTimeText = hasTimes
+    ? "\n\n【静止画の正確な時刻（実測・秒。動画末尾＝落下/取り切りの核心）】\n" +
+      frames.map((_, i) => `コマ${i + 1}=${frameTimes![i].toFixed(1)}秒`).join(" / ") +
+      "\nこの秒数は正確。落ちる/取り切る瞬間はこれらの静止画のどこかに映っている。" +
+      "findings の tSec は、静止画で確認できる出来事（＝末尾の核心）では、動画メモの秒数ではなく" +
+      "『実際にその瞬間が映っている上記コマの秒数』を使う（動画メモの秒数はズレることがある）。" +
+      "静止画に映らない序盤〜中盤の指摘だけ、動画メモの秒数を使う。"
+    : "";
+
   const userText =
-    "上は1回のトライの時系列コマです。\n\n" +
+    "上は1回のトライの時系列コマです（動画の末尾＝落ちる核心に集中した静止画）。\n\n" +
     "【Geminiの動画メモ（秒数つき・観察）】\n" +
     (notes || "（メモなし）") +
+    frameTimeText +
     (grade ? `\n\nグレード: ${grade}` : "") +
     (holdColor
       ? `\n課題の色: ${holdColor}（対象はこの色のホールドのみ。他の色のホールドは別課題なので言及しない）`
@@ -245,6 +260,7 @@ async function coach(
 export async function analyzeIntegrated(input: {
   video: Blob;
   frames: string[];
+  frameTimes?: number[];
   grade?: string;
   holdColor?: string;
   wallAngle?: string;
@@ -266,6 +282,7 @@ export async function analyzeIntegrated(input: {
     input.wallAngle,
     input.note,
     input.trend,
+    input.frameTimes,
   );
   // AIがどう動きを読んだか（観察メモ）を結果に添える。理解の確認・フィードバック用。
   return { ...feedback, videoNotes: notes };
